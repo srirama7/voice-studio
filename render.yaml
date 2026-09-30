@@ -1,0 +1,12 @@
+# Render Blueprint - one-click free deploy (no card required).
+services:
+  - type: web
+    name: voice-studio
+    runtime: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    envVars:
+      - key: PORT
+        value: 7860
+      - key: VOICE_STUDIO_ROOT
+        value: /data
