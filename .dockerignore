@@ -1,0 +1,8 @@
+__pycache__/
+.pytest_cache/
+cache/
+checkpoints/
+outputs/
+tests/
+*.log
+Voice-Studio-START.bat

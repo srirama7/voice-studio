@@ -37,6 +37,14 @@ try:
 except ImportError:
     _HAS_PYPDF = False
 
+# Try python-docx
+try:
+    import docx
+    _HAS_DOCX = True
+except ImportError:
+    _HAS_DOCX = False
+
+
 
 @dataclass
 class SlideData:
@@ -52,11 +60,14 @@ class SlideData:
         Return the primary text intended for voice synthesis.
         Speaker notes take priority if available, otherwise body text.
         """
+        raw = ""
         if self.speaker_notes and len(self.speaker_notes.strip()) > 0:
-            return self.speaker_notes.strip()
-        if self.title and self.body_text:
-            return f"{self.title}. {self.body_text}".strip()
-        return (self.title or self.body_text or self.raw_text).strip()
+            raw = self.speaker_notes.strip()
+        elif self.title and self.body_text:
+            raw = f"{self.title}. {self.body_text}".strip()
+        else:
+            raw = (self.title or self.body_text or self.raw_text).strip()
+        return re.sub(r'[\x00-\x09\x0b\x0c\x0e-\x1f\x7f]', ' ', raw).strip()
 
     def to_dict(self) -> Dict[str, Any]:
         return asdict(self)
@@ -66,17 +77,29 @@ class SlideData:
 class ParsedDocument:
     """Complete parsed document structure holding list of slides and metadata."""
     file_path: str
-    doc_type: str  # pptx, pdf, txt
+    doc_type: str  # pptx, pdf, txt, docx
     total_slides: int
     slides: List[SlideData] = field(default_factory=list)
+
+    @property
+    def full_text(self) -> str:
+        """Combine narrative text from all slides into a single document string."""
+        texts = []
+        for s in self.slides:
+            t = s.get_narrative_text()
+            if t:
+                texts.append(t)
+        return "\n\n".join(texts)
 
     def to_dict(self) -> Dict[str, Any]:
         return {
             "file_path": str(self.file_path),
             "doc_type": self.doc_type,
             "total_slides": self.total_slides,
+            "full_text": self.full_text,
             "slides": [s.to_dict() for s in self.slides],
         }
+
 
 
 class DocumentParser:
@@ -86,7 +109,7 @@ class DocumentParser:
     def parse(file_path: Union[str, Path]) -> ParsedDocument:
         """
         Parse presentation or text document file based on extension.
-        Supports `.pptx`, `.pdf`, `.txt`, `.md`.
+        Supports `.pptx`, `.pdf`, `.txt`, `.md`, `.docx`.
         """
         file_path = Path(file_path)
         if not file_path.exists():
@@ -99,8 +122,10 @@ class DocumentParser:
             return DocumentParser.parse_pdf(file_path)
         elif ext in (".txt", ".md"):
             return DocumentParser.parse_txt(file_path)
+        elif ext == ".docx":
+            return DocumentParser.parse_docx(file_path)
         else:
-            raise ValueError(f"Unsupported document format: '{ext}'. Supported formats: .pptx, .pdf, .txt, .md")
+            raise ValueError(f"Unsupported document format: '{ext}'. Supported formats: .pptx, .pdf, .txt, .md, .docx")
 
     @staticmethod
     def parse_pptx(file_path: Union[str, Path]) -> ParsedDocument:
@@ -287,3 +312,78 @@ class DocumentParser:
             total_slides=len(slides_data),
             slides=slides_data,
         )
+
+    @staticmethod
+    def parse_docx(file_path: Union[str, Path]) -> ParsedDocument:
+        """Extract text sections/pages from DOCX files using python-docx or zipfile XML fallback."""
+        file_path = Path(file_path)
+        paragraphs_text: List[str] = []
+
+        if _HAS_DOCX:
+            try:
+                doc = docx.Document(str(file_path))
+                for p in doc.paragraphs:
+                    t = p.text.strip()
+                    if t:
+                        paragraphs_text.append(t)
+                for table in doc.tables:
+                    for row in table.rows:
+                        row_text = " | ".join(cell.text.strip() for cell in row.cells if cell.text.strip())
+                        if row_text:
+                            paragraphs_text.append(row_text)
+            except Exception:
+                paragraphs_text = []
+
+        if not paragraphs_text:
+            # Fallback using zipfile and xml parsing
+            import zipfile
+            import xml.etree.ElementTree as ET
+            try:
+                with zipfile.ZipFile(str(file_path)) as z:
+                    xml_content = z.read("word/document.xml")
+                    root = ET.fromstring(xml_content)
+                    ns = {"w": "http://schemas.openxmlformats.org/wordprocessingml/2006/main"}
+                    for p in root.findall(".//w:p", ns):
+                        texts = [t.text for t in p.findall(".//w:t", ns) if t.text]
+                        p_str = "".join(texts).strip()
+                        if p_str:
+                            paragraphs_text.append(p_str)
+            except Exception as exc:
+                raise RuntimeError(f"Failed to parse DOCX file {file_path}: {exc}") from exc
+
+        slides_data: List[SlideData] = []
+        chunk_size = 4
+        chunks = [paragraphs_text[i:i + chunk_size] for i in range(0, len(paragraphs_text), chunk_size)]
+
+        for idx, chunk in enumerate(chunks, start=1):
+            title = chunk[0] if chunk else f"Section {idx}"
+            body_text = "\n".join(chunk[1:]) if len(chunk) > 1 else chunk[0]
+            raw_text = "\n".join(chunk)
+            slides_data.append(
+                SlideData(
+                    slide_index=idx,
+                    title=title,
+                    body_text=body_text,
+                    speaker_notes="",
+                    raw_text=raw_text,
+                )
+            )
+
+        if not slides_data:
+            slides_data.append(
+                SlideData(
+                    slide_index=1,
+                    title="Doc 1",
+                    body_text="Empty DOCX document",
+                    speaker_notes="",
+                    raw_text="",
+                )
+            )
+
+        return ParsedDocument(
+            file_path=str(file_path),
+            doc_type="docx",
+            total_slides=len(slides_data),
+            slides=slides_data,
+        )
+

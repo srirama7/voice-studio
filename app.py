@@ -23,6 +23,53 @@ from voice_enrollment import VoiceEnrollmentEngine, QCResult, VoiceProfile
 from voice_clone import GALLERY_VOICES
 from job_engine import JobEngine, JobStatus, JobCheckpoint, JobManifest
 from document_parser import DocumentParser
+from translator import translate_text
+
+
+def handle_narration_translation(text: str, target_lang: str, text_size: str) -> Tuple[str, str]:
+    """Handler to translate presentation narration text and update font size preview."""
+    if not text or not text.strip():
+        return "⚠️ Please enter or paste presentation narration text to translate.", "<div style='font-size: 16px; color: gray;'>No text provided</div>"
+
+    font_size_map = {
+        "Small (14px)": "14px",
+        "Medium (18px)": "18px",
+        "Large (22px)": "22px",
+        "Extra Large (26px)": "26px",
+    }
+    font_px = font_size_map.get(text_size, "18px")
+
+    try:
+        translated = translate_text(text, target_lang=target_lang)
+        html_preview = (
+            f"<div style='font-size: {font_px}; line-height: 1.6; padding: 14px; "
+            f"background: #1e293b; border-radius: 8px; color: #f8fafc; margin-top: 10px;'>"
+            f"<strong>🔤 i18n Narration Text Preview ({font_px}):</strong><br/>{translated}</div>"
+        )
+        return translated, html_preview
+    except Exception as exc:
+        logger.error("Narration translation error: %s", exc)
+        return f"❌ Translation Error: {exc}", f"<div style='font-size: 16px; color: red;'>Translation Error: {exc}</div>"
+
+
+def handle_text_size_change(text: str, text_size: str) -> str:
+    """Handler to update font size preview when text size selection changes."""
+    font_size_map = {
+        "Small (14px)": "14px",
+        "Medium (18px)": "18px",
+        "Large (22px)": "22px",
+        "Extra Large (26px)": "26px",
+    }
+    font_px = font_size_map.get(text_size, "18px")
+    display_text = text if text and text.strip() else "Narration text preview will appear here with selected font size."
+    return (
+        f"<div style='font-size: {font_px}; line-height: 1.6; padding: 14px; "
+        f"background: #1e293b; border-radius: 8px; color: #f8fafc; margin-top: 10px;'>"
+        f"<strong>🔤 i18n Narration Text Preview ({font_px}):</strong><br/>{display_text}</div>"
+    )
+
+
+# Build Studio App
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
 logger = logging.getLogger(__name__)
@@ -76,10 +123,10 @@ def handle_voice_enrollment(
     voice_id: str,
     version: str,
     strict_qc: bool,
-) -> Tuple[str, Dict, Optional[str], Any]:
+) -> Tuple[str, Dict, Optional[str], Optional[str], Any]:
     """Handler for Tab 1: Voice Enrollment & QC Verification."""
     if not audio_file:
-        return "### ❌ Error: Please upload or record a reference audio file.", {}, None, gr.Dropdown()
+        return "### ❌ Error: Please upload or record a reference audio file.", {}, None, None, gr.Dropdown()
 
     if not voice_id or not voice_id.strip():
         voice_id = f"voice_{uuid.uuid4().hex[:8]}"
@@ -114,11 +161,11 @@ def handle_voice_enrollment(
 
         voices = list_available_voices()
         dropdown_update = gr.Dropdown(choices=all_voice_choices(), value=profile.voice_id)
-        return status_md, profile.to_dict(), profile.ref_wav_path, dropdown_update
+        return status_md, profile.to_dict(), profile.ref_wav_path, profile.ref_wav_path, dropdown_update
 
     except Exception as exc:
         logger.error("Enrollment failed: %s", exc)
-        return f"### ❌ Enrollment Failed\n**Error:** `{exc}`", {"error": str(exc)}, None, gr.Dropdown()
+        return f"### ❌ Enrollment Failed\n**Error:** `{exc}`", {"error": str(exc)}, None, None, gr.Dropdown()
 
 
 def handle_document_generation(
@@ -127,10 +174,10 @@ def handle_document_generation(
     text_mode: str,
     language: str,
     progress=gr.Progress(),
-) -> Tuple[str, Optional[str], Optional[str], Optional[str], Dict]:
+) -> Tuple[str, Optional[str], Optional[str], Optional[str], Optional[str], Dict]:
     """Handler for Tab 2: Document Generation & Video Assembly."""
     if not document_file:
-        return "❌ Please upload a presentation document file (.pptx, .pdf, .txt, .md).", None, None, None, {}
+        return "❌ Please upload a presentation document file (.pptx, .pdf, .txt, .md).", None, None, None, None, {}
 
     # Single-dropdown routing: "gallery:<id>" values speak via the stock
     # gallery voice (no enrollment needed); anything else is an enrolled
@@ -139,7 +186,7 @@ def handle_document_generation(
     if voice_id and voice_id.startswith("gallery:"):
         gallery_voice = voice_id.split(":", 1)[1]
         if gallery_voice not in GALLERY_VOICES:
-            return f"❌ Unknown gallery voice `{gallery_voice}`.", None, None, None, {}
+            return f"❌ Unknown gallery voice `{gallery_voice}`.", None, None, None, None, {}
         voice_id = f"gallery:{gallery_voice}"
     else:
         if not voice_id or not voice_id.strip():
@@ -180,23 +227,23 @@ def handle_document_generation(
         video_res = manifest.video_file if Path(manifest.video_file).exists() else None
         srt_res = manifest.subtitle_file if Path(manifest.subtitle_file).exists() else None
 
-        return status_msg, audio_res, video_res, srt_res, manifest.to_dict()
+        return status_msg, audio_res, audio_res, video_res, srt_res, manifest.to_dict()
 
     except Exception as exc:
         logger.error("Document generation error: %s", exc)
-        return f"❌ Generation Failed: {exc}", None, None, None, {"error": str(exc)}
+        return f"❌ Generation Failed: {exc}", None, None, None, None, {"error": str(exc)}
 
 
-def handle_job_monitor(job_id_search: str) -> Tuple[str, Dict, Optional[str], Optional[str], Optional[str]]:
+def handle_job_monitor(job_id_search: str) -> Tuple[str, Dict, Optional[str], Optional[str], Optional[str], Optional[str]]:
     """Handler for Tab 3: Job Monitor & Crash Recovery Inspection."""
     if not job_id_search or not job_id_search.strip():
-        return "⚠️ Please enter a valid Job ID.", {}, None, None, None
+        return "⚠️ Please enter a valid Job ID.", {}, None, None, None, None
 
     job_id = job_id_search.strip()
     checkpoint = job_engine.load_checkpoint(job_id)
 
     if checkpoint is None:
-        return f"❌ Job `{job_id}` not found in checkpoints repository.", {}, None, None, None
+        return f"❌ Job `{job_id}` not found in checkpoints repository.", {}, None, None, None, None
 
     status_summary = (
         f"### Job Details: `{checkpoint.job_id}`\n"
@@ -212,7 +259,7 @@ def handle_job_monitor(job_id_search: str) -> Tuple[str, Dict, Optional[str], Op
     video_res = checkpoint.video_path if checkpoint.video_path and Path(checkpoint.video_path).exists() else None
     srt_res = checkpoint.subtitle_path if checkpoint.subtitle_path and Path(checkpoint.subtitle_path).exists() else None
 
-    return status_summary, checkpoint.to_dict(), audio_res, video_res, srt_res
+    return status_summary, checkpoint.to_dict(), audio_res, audio_res, video_res, srt_res
 
 
 def refresh_voice_list() -> Any:
@@ -302,6 +349,7 @@ def build_app() -> gr.Blocks:
                         enroll_status_output = gr.Markdown("Ready to capture voice sample.")
                         qc_metrics_json = gr.JSON(label="QC Metrics & Profile Data")
                         ref_audio_output = gr.Audio(label="Canonical Reference WAV (22.05kHz Mono)", interactive=False)
+                        ref_audio_download = gr.File(label="📥 Download Reference Audio (.wav)")
 
                 gr.Markdown("### 📚 Voice Library — Edit / Delete Profiles")
                 with gr.Row():
@@ -359,9 +407,54 @@ def build_app() -> gr.Blocks:
                     with gr.Column(scale=1):
                         gen_status_output = gr.Markdown("Ready to generate presentation.")
                         mastered_audio_player = gr.Audio(label="Mastered Speech Audio (-14 LUFS)", interactive=False)
+                        mastered_audio_download = gr.File(label="📥 Download Speech Audio (.wav)")
                         rendered_video_player = gr.Video(label="H.264 MP4 Presentation Video")
                         srt_file_download = gr.File(label="Download Subtitle (.srt)")
                         manifest_json_output = gr.JSON(label="Job Manifest Details")
+
+                gr.Markdown("### 🌐 Direct i18n Presentation Narration Translator & Text Resizer")
+                with gr.Row():
+                    with gr.Column(scale=1):
+                        direct_text_input = gr.Textbox(
+                            label="✏️ Direct Presentation Narration Text",
+                            lines=5,
+                            placeholder="Enter or paste presentation narration text to translate directly...",
+                        )
+                        with gr.Row():
+                            target_i18n_lang = gr.Dropdown(
+                                choices=[
+                                    ("Kannada (ಕನ್ನಡ)", "kn"),
+                                    ("Hindi (हिंदी)", "hi"),
+                                    ("Tamil (தமிழ்)", "ta"),
+                                    ("Telugu (తెలుగు)", "te"),
+                                    ("Malayalam (മലയാളം)", "ml"),
+                                    ("Marathi (मराठी)", "mr"),
+                                    ("Bengali (বাংলা)", "bn"),
+                                    ("Gujarati (ગુજરાતી)", "gu"),
+                                    ("English", "en"),
+                                    ("Spanish (Español)", "es"),
+                                    ("French (Français)", "fr"),
+                                    ("German (Deutsch)", "de"),
+                                ],
+                                value="kn",
+                                label="🌐 Target i18n Language",
+                            )
+                            text_size_select = gr.Radio(
+                                choices=["Small (14px)", "Medium (18px)", "Large (22px)", "Extra Large (26px)"],
+                                value="Medium (18px)",
+                                label="🔤 Text Display Size",
+                            )
+                        translate_narration_btn = gr.Button("🌐 Translate Narration Text Now", variant="secondary")
+
+                    with gr.Column(scale=1):
+                        translated_narration_output = gr.Textbox(
+                            label="🔤 i18n Translated Narration Output",
+                            lines=5,
+                            interactive=True,
+                        )
+                        text_size_preview = gr.HTML(
+                            value="<div style='font-size: 18px; line-height: 1.6; padding: 14px; background: #1e293b; border-radius: 8px; color: #f8fafc; margin-top: 10px;'>Text preview with selected font size will appear here...</div>"
+                        )
 
             # --- TAB 3: ENTERPRISE JOB MONITOR ---
             with gr.Tab("🔍 Job Monitor & Crash Recovery"):
@@ -378,6 +471,7 @@ def build_app() -> gr.Blocks:
                         monitor_status_output = gr.Markdown("Enter Job ID to view state.")
                         checkpoint_json_output = gr.JSON(label="Checkpoint State JSON")
                         monitored_audio = gr.Audio(label="Mastered Audio", interactive=False)
+                        monitored_audio_download = gr.File(label="📥 Download Mastered Audio (.wav)")
                         monitored_video = gr.Video(label="Rendered Video")
                         monitored_srt = gr.File(label="SRT Subtitle File")
 
@@ -385,7 +479,13 @@ def build_app() -> gr.Blocks:
         enroll_button.click(
             fn=handle_voice_enrollment,
             inputs=[audio_input, voice_id_input, version_input, strict_qc_checkbox],
-            outputs=[enroll_status_output, qc_metrics_json, ref_audio_output, voice_id_select],
+            outputs=[
+                enroll_status_output,
+                qc_metrics_json,
+                ref_audio_output,
+                ref_audio_download,
+                voice_id_select,
+            ],
         )
 
         refresh_voices_btn.click(
@@ -412,10 +512,23 @@ def build_app() -> gr.Blocks:
             outputs=[
                 gen_status_output,
                 mastered_audio_player,
+                mastered_audio_download,
                 rendered_video_player,
                 srt_file_download,
                 manifest_json_output,
             ],
+        )
+
+        translate_narration_btn.click(
+            fn=handle_narration_translation,
+            inputs=[direct_text_input, target_i18n_lang, text_size_select],
+            outputs=[translated_narration_output, text_size_preview],
+        )
+
+        text_size_select.change(
+            fn=handle_text_size_change,
+            inputs=[translated_narration_output, text_size_select],
+            outputs=[text_size_preview],
         )
 
         inspect_button.click(
@@ -425,6 +538,7 @@ def build_app() -> gr.Blocks:
                 monitor_status_output,
                 checkpoint_json_output,
                 monitored_audio,
+                monitored_audio_download,
                 monitored_video,
                 monitored_srt,
             ],

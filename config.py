@@ -79,6 +79,9 @@ class PathConfig:
     checkpoint_dir: Path = field(init=False)
 
     def __post_init__(self) -> None:
+        import tempfile
+        if os.getenv("VERCEL") or os.getenv("AWS_LAMBDA_FUNCTION_NAME") or not os.access(str(self.base_dir), os.W_OK):
+            self.base_dir = Path(tempfile.gettempdir()) / "voice_studio"
         self.cache_dir = self.base_dir / "cache"
         self.voices_dir = self.cache_dir / "voices"
         self.output_dir = self.base_dir / "outputs"
@@ -148,7 +151,10 @@ class Config:
             self.paths.output_dir,
             self.paths.checkpoint_dir
         ]:
-            path.mkdir(parents=True, exist_ok=True)
+            try:
+                path.mkdir(parents=True, exist_ok=True)
+            except Exception:
+                pass
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert configuration to a serializable dictionary."""

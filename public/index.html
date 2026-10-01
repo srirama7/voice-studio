@@ -1,0 +1,1020 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Audiogram — Create Beautiful Audio Experiences</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+    <style>
+        :root {
+            --bg-space: #02050a;
+            --text-primary: #f4efe7;
+            --text-secondary: rgba(224, 231, 234, 0.78);
+            --text-muted: rgba(244, 242, 238, 0.42);
+            --accent-cyan: #8ed8e8;
+            --accent-blue: #3e8bff;
+            --accent-purple: #8055e9;
+            --font-serif: 'Playfair Display', Georgia, serif;
+            --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        html, body {
+            background-color: var(--bg-space);
+            color: var(--text-primary);
+            font-family: var(--font-sans);
+            overflow-x: hidden;
+            scroll-behavior: smooth;
+        }
+
+        /* Pure space background */
+        body {
+            background-color: #010408;
+            background: #010408;
+        }
+
+        /* Fixed 3D Earth & Deep Space Canvas */
+        #webgl-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: 1;
+            pointer-events: none;
+        }
+
+        /* Fixed Subtle Starfield Canvas */
+        #stars-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: 0;
+            pointer-events: none;
+        }
+
+        /* 55px Audiogram Header */
+        .audiogram-header {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 55px;
+            z-index: 100;
+            display: grid;
+            grid-template-columns: 1fr auto 1fr;
+            align-items: center;
+            padding: 0 4rem;
+            background: rgba(2, 5, 10, 0.25);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .brand-logo {
+            font-family: var(--font-sans);
+            font-weight: 700;
+            font-size: 15px;
+            letter-spacing: 0.14em;
+            text-transform: lowercase;
+            color: var(--text-primary);
+            text-decoration: none;
+            justify-self: start;
+        }
+
+        .nav-center {
+            display: flex;
+            gap: 2.2rem;
+            list-style: none;
+            margin: 0;
+            padding: 0;
+        }
+
+        .nav-item-link {
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.14em;
+            font-weight: 500;
+            color: rgba(244, 242, 238, 0.72);
+            text-decoration: none;
+            transition: color 250ms ease;
+        }
+
+        .nav-item-link:hover {
+            color: #f4efe7;
+        }
+
+        .btn-launch-studio {
+            justify-self: end;
+            width: 157px;
+            height: 37px;
+            background: #f4efe7;
+            color: #02050a;
+            border-radius: 999px;
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            border: none;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            transition: transform 250ms ease, box-shadow 250ms ease, background 250ms ease;
+            text-decoration: none;
+        }
+
+        .btn-launch-studio:hover {
+            transform: translateY(-1px) scale(1.02);
+            background: #ffffff;
+            box-shadow: 0 0 25px rgba(142, 216, 232, 0.35);
+            color: #000;
+        }
+
+        /* Continuous Story Container */
+        .story-container {
+            position: relative;
+            z-index: 10;
+        }
+
+        .story-section {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            padding: 5rem 6vw;
+            position: relative;
+        }
+
+        /* Eyebrow badge */
+        .hero-eyebrow {
+            display: inline-flex;
+            align-items: center;
+            height: 31px;
+            padding: 0 1.1rem;
+            border: 1px solid rgba(120, 220, 240, 0.28);
+            background: rgba(5, 30, 38, 0.22);
+            border-radius: 50px;
+            font-size: 11px;
+            letter-spacing: 0.18em;
+            text-transform: uppercase;
+            color: var(--accent-cyan);
+            margin-bottom: 2rem;
+        }
+
+        /* Exact 2-Line Editorial Headline */
+        .hero-headline {
+            font-family: var(--font-serif);
+            font-size: clamp(60px, 5.2vw, 102px);
+            line-height: 0.94;
+            letter-spacing: -0.035em;
+            color: #f4efe7;
+            font-weight: 400;
+            margin-bottom: 1.8rem;
+            max-width: 720px;
+            text-shadow: 0 8px 30px rgba(0, 0, 0, 0.9);
+        }
+
+        /* Body paragraph */
+        .hero-paragraph {
+            font-size: clamp(15px, 1.05vw, 18px);
+            line-height: 1.6;
+            color: rgba(224, 231, 234, 0.78);
+            max-width: 530px;
+            margin-bottom: 2.2rem;
+            text-shadow: 0 4px 15px rgba(0, 0, 0, 0.85);
+        }
+
+        /* Buttons Row */
+        .buttons-row {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            flex-wrap: wrap;
+        }
+
+        .btn-create-audiogram {
+            background: linear-gradient(135deg, #3e8bff 0%, #8055e9 100%);
+            color: #ffffff;
+            font-size: 15px;
+            font-weight: 700;
+            height: 52px;
+            padding: 0 28px;
+            border-radius: 12px;
+            border: none;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            cursor: pointer;
+            transition: transform 250ms ease, box-shadow 250ms ease;
+            text-decoration: none;
+        }
+
+        .btn-create-audiogram:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px rgba(62, 139, 255, 0.45);
+            color: #ffffff;
+        }
+
+        .btn-explore-night {
+            background: transparent;
+            color: var(--text-primary);
+            font-size: 15px;
+            font-weight: 500;
+            height: 50px;
+            padding: 0 26px;
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.8);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 250ms ease;
+            text-decoration: none;
+        }
+
+        .btn-explore-night:hover {
+            background: rgba(255, 255, 255, 0.1);
+            color: #ffffff;
+            border-color: #ffffff;
+        }
+
+        /* Earth Diameter Annotation (Thin cyan line + 12,742 KM) */
+        .earth-annotation {
+            position: absolute;
+            right: 8vw;
+            top: 42%;
+            display: flex;
+            align-items: flex-start;
+            gap: 1rem;
+            z-index: 15;
+            user-select: none;
+        }
+
+        .annotation-line {
+            width: 1px;
+            height: 74px;
+            background: rgba(103, 220, 240, 0.8);
+            box-shadow: 0 0 12px rgba(103, 220, 240, 0.6);
+        }
+
+        .annotation-data .number {
+            font-size: 46px;
+            font-weight: 700;
+            font-family: var(--font-serif);
+            color: #f4efe7;
+            line-height: 1;
+            letter-spacing: -0.02em;
+            text-shadow: 0 2px 15px rgba(0, 0, 0, 0.8);
+        }
+
+        .annotation-data .label {
+            font-size: 10px;
+            letter-spacing: 0.18em;
+            text-transform: uppercase;
+            color: rgba(244, 242, 238, 0.65);
+            margin-top: 6px;
+            font-weight: 600;
+            text-shadow: 0 1px 10px rgba(0, 0, 0, 0.8);
+        }
+
+        /* Glassmorphic Audiogram Presentation Studio Card */
+        .audiogram-card {
+            background: rgba(10, 16, 28, 0.68);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 24px;
+            padding: 2.5rem;
+            box-shadow: 0 30px 80px rgba(0, 0, 0, 0.85);
+        }
+
+        .form-control, .form-select {
+            background-color: rgba(2, 5, 11, 0.8) !important;
+            border: 1px solid rgba(255, 255, 255, 0.14) !important;
+            color: var(--text-primary) !important;
+            border-radius: 12px;
+            padding: 0.75rem 1rem;
+        }
+
+        .form-control:focus, .form-select:focus {
+            border-color: var(--accent-cyan) !important;
+            box-shadow: 0 0 20px rgba(142, 216, 232, 0.25) !important;
+        }
+
+        /* Giant Footer Wordmark */
+        .footer-audiogram {
+            position: relative;
+            z-index: 10;
+            background: #010307;
+            border-top: 1px solid rgba(255, 255, 255, 0.08);
+            padding: 5rem 6vw 2rem;
+        }
+
+        .giant-wordmark {
+            font-family: var(--font-sans);
+            font-size: clamp(6rem, 20vw, 22rem);
+            font-weight: 800;
+            line-height: 0.8;
+            letter-spacing: -0.04em;
+            color: rgba(244, 242, 238, 0.04);
+            text-align: center;
+            user-select: none;
+            margin-top: 3rem;
+            text-transform: lowercase;
+            overflow: hidden;
+        }
+
+        @media (max-width: 991px) {
+            .audiogram-header { padding: 0 1.5rem; }
+            .nav-center { display: none; }
+            .earth-annotation { display: none; }
+            .story-section { padding: 4rem 1.5rem; }
+            .hero-headline { font-size: 52px; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Starfield Layer -->
+    <canvas id="stars-canvas"></canvas>
+
+    <!-- Three.js Real Earth WebGL Canvas -->
+    <div id="webgl-container"></div>
+
+    <!-- 55px Fixed Header -->
+    <header class="audiogram-header">
+        <a href="#" class="brand-logo">audiogram</a>
+        <ul class="nav-center">
+            <li><a href="#hero" class="nav-item-link">Planets</a></li>
+            <li><a href="#night" class="nav-item-link">Trailers</a></li>
+            <li><a href="#studio" class="nav-item-link">Studio</a></li>
+            <li><a href="#footer" class="nav-item-link">Blog</a></li>
+        </ul>
+        <a href="#studio" class="btn-launch-studio">Launch Studio</a>
+    </header>
+
+    <!-- Continuous Scroll Story Experience -->
+    <div class="story-container">
+
+        <!-- 1. Hero Daylight Overhead State -->
+        <section id="hero" class="story-section">
+            <div class="container-fluid p-0">
+                <div class="row">
+                    <div class="col-lg-6">
+                        <div class="hero-eyebrow">🛰 CONTINUOUS ORBITAL AUDIO STUDIO</div>
+                        <h1 class="hero-headline">Take the seat<br>by the window.</h1>
+                        <p class="hero-paragraph">One planet, six weeks, and an Indian accent narration feed that never cuts away. Extract presentations, auto-translate into 10 Indian languages, and produce humanized studio speech audio.</p>
+                        <div class="buttons-row">
+                            <a href="#studio" class="btn-create-audiogram">🚀 Create Audiogram Now</a>
+                            <a href="#night" class="btn-explore-night">Explore Night Limb ↓</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 12,742 KM Earth Diameter Annotation -->
+            <div class="earth-annotation">
+                <div class="annotation-line"></div>
+                <div class="annotation-data">
+                    <div class="number">12,742</div>
+                    <div class="label">EARTH DIAMETER (KM)</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 2. Night Limb State -->
+        <section id="night" class="story-section">
+            <div class="container-fluid p-0">
+                <div class="row">
+                    <div class="col-lg-6 ms-auto text-lg-end">
+                        <div class="hero-eyebrow">🌃 ORBITAL CRESCENT LIGHTING</div>
+                        <h2 class="hero-headline">Half of it is always dark.<br>That half never sleeps.</h2>
+                        <p class="hero-paragraph ms-lg-auto">From the glowing city lights of Bengaluru and Mumbai to global orbit, transform document presentations into sweet, lifelike female and deep male voices with studio resonance DSP.</p>
+                        <div class="buttons-row justify-content-lg-end">
+                            <a href="#studio" class="btn-create-audiogram">Enter Studio ↓</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 3. Audiogram Voice & Presentation Studio -->
+        <section id="studio" class="story-section">
+            <div class="container-fluid p-0">
+                <div class="row justify-content-center">
+                    <div class="col-xl-11 col-lg-12">
+                        <div class="audiogram-card">
+                            <div class="d-flex flex-wrap align-items-center justify-content-between mb-4 gap-2">
+                                <div>
+                                    <div class="hero-eyebrow mb-1">🎙️ AI AUDIOGRAM STUDIO</div>
+                                    <h2 class="h3 font-serif mb-0 text-white">Document Extraction, i18n Translation & Narration</h2>
+                                </div>
+                                <span class="badge bg-success px-3 py-2 rounded-pill fs-7">⚡ 39 Indian Voices • 100% Serverless</span>
+                            </div>
+
+                            <div class="row g-4">
+                                <!-- Upload & Translation Column -->
+                                <div class="col-lg-6">
+                                    <div class="p-3 rounded-4 bg-dark bg-opacity-50 border border-secondary border-opacity-25 h-100">
+                                        <h4 class="h5 text-info mb-3">📄 1. Upload Presentation & Select Target Language</h4>
+                                        <form id="parseForm" enctype="multipart/form-data">
+                                            <div class="mb-3">
+                                                <label class="form-label text-secondary small">Supported Formats: PPTX, PDF, DOCX, TXT, MD</label>
+                                                <input type="file" class="form-control" id="docFile" required>
+                                            </div>
+                                            <div class="mb-3">
+                                                <label class="form-label text-secondary small">i18n Target Language:</label>
+                                                <select class="form-select" id="autoLangSelect">
+                                                    <option value="NONE">Original Script (No Translation)</option>
+                                                    <option value="kn">Kannada (ಕನ್ನಡ)</option>
+                                                    <option value="hi">Hindi (हिंदी)</option>
+                                                    <option value="en">Indian English (English)</option>
+                                                    <option value="ta">Tamil (தமிழ்)</option>
+                                                    <option value="te">Telugu (తెలుగు)</option>
+                                                    <option value="ml">Malayalam (മലയാളം)</option>
+                                                    <option value="mr">Marathi (मराठी)</option>
+                                                    <option value="bn">Bengali (বাংলা)</option>
+                                                    <option value="gu">Gujarati (ગુજરાતી)</option>
+                                                    <option value="ur">Urdu (اردو)</option>
+                                                </select>
+                                            </div>
+                                            <button type="submit" class="btn btn-create-audiogram w-100 py-2">🚀 Extract & Translate Document</button>
+                                        </form>
+                                        <div id="parseStatus" class="mt-3 text-info small"></div>
+
+                                        <div id="slideNavContainer" class="mt-3" style="display: none;">
+                                            <label class="form-label text-secondary small">Select Slide View:</label>
+                                            <select class="form-select mb-2" id="slideSelect"></select>
+                                        </div>
+
+                                        <div id="translationContainer" class="mt-3 pt-3 border-top border-secondary border-opacity-25" style="display: none;">
+                                            <label class="form-label text-warning small mb-1">Re-Translate Current Slide To:</label>
+                                            <div class="input-group">
+                                                <select class="form-select" id="targetLangSelect">
+                                                    <option value="kn">Kannada (ಕನ್ನಡ)</option>
+                                                    <option value="hi">Hindi (हिंदी)</option>
+                                                    <option value="en">Indian English (English)</option>
+                                                    <option value="ta">Tamil (தமிழ்)</option>
+                                                    <option value="te">Telugu (తెలుగు)</option>
+                                                    <option value="ml">Malayalam (മലയാളം)</option>
+                                                    <option value="mr">Marathi (मराठी)</option>
+                                                    <option value="bn">Bengali (বাংলা)</option>
+                                                    <option value="gu">Gujarati (ગુજરાતી)</option>
+                                                    <option value="ur">Urdu (اردو)</option>
+                                                </select>
+                                                <button class="btn btn-outline-info" type="button" id="translateBtn">Re-Translate</button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Voice Synthesis Column -->
+                                <div class="col-lg-6">
+                                    <div class="p-3 rounded-4 bg-dark bg-opacity-50 border border-secondary border-opacity-25 h-100 d-flex flex-column justify-content-between">
+                                        <div>
+                                            <h4 class="h5 text-purple mb-3">🗣️ 2. Select Indian Voice Profile</h4>
+                                            <form id="synthForm">
+                                                <div class="mb-3">
+                                                    <label class="form-label text-secondary small">Voice Profile (39 Total Available):</label>
+                                                    <select class="form-select" id="voiceSelect" required>
+                                                        <option value="">Loading voices...</option>
+                                                    </select>
+                                                </div>
+                                                <div class="mb-2 d-flex flex-wrap justify-content-between align-items-center gap-2">
+                                                    <label class="form-label text-secondary small mb-0">Presentation Narration Text</label>
+                                                    <div class="d-flex align-items-center gap-2">
+                                                        <span id="langBadge" class="badge bg-primary px-2 py-1" style="display: none;"></span>
+                                                        <div class="btn-group btn-group-sm" role="group" aria-label="Text Size">
+                                                            <button type="button" class="btn btn-outline-secondary btn-text-size px-2 py-0" data-size="14px" title="Small Text (14px)">A-</button>
+                                                            <button type="button" class="btn btn-outline-secondary btn-text-size active px-2 py-0" data-size="16px" title="Medium Text (16px)">A</button>
+                                                            <button type="button" class="btn btn-outline-secondary btn-text-size px-2 py-0" data-size="20px" title="Large Text (20px)">A+</button>
+                                                            <button type="button" class="btn btn-outline-secondary btn-text-size px-2 py-0" data-size="24px" title="Extra Large Text (24px)">A++</button>
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                <!-- Direct i18n Narration Translation Toolbar -->
+                                                <div class="mb-2 p-2 rounded-3 bg-dark bg-opacity-75 border border-secondary border-opacity-25">
+                                                    <div class="input-group input-group-sm">
+                                                        <span class="input-group-text bg-transparent text-info border-secondary text-nowrap"><i class="bi bi-translate"></i> 🌐 i18n Translate:</span>
+                                                        <select class="form-select border-secondary" id="directTranslateLangSelect">
+                                                            <option value="kn">Kannada (ಕನ್ನಡ)</option>
+                                                            <option value="hi" selected>Hindi (हिंदी)</option>
+                                                            <option value="ta">Tamil (தமிழ்)</option>
+                                                            <option value="te">Telugu (తెలుగు)</option>
+                                                            <option value="ml">Malayalam (മലയാളം)</option>
+                                                            <option value="mr">Marathi (मराठी)</option>
+                                                            <option value="bn">Bengali (বাংলা)</option>
+                                                            <option value="gu">Gujarati (ગુજરાતી)</option>
+                                                            <option value="en">English</option>
+                                                            <option value="es">Spanish (Español)</option>
+                                                            <option value="fr">French (Français)</option>
+                                                            <option value="de">German (Deutsch)</option>
+                                                        </select>
+                                                        <button class="btn btn-outline-info" type="button" id="directTranslateBtn">Translate Narration</button>
+                                                    </div>
+                                                </div>
+
+                                                <div class="mb-3">
+                                                    <textarea class="form-control" id="synthText" rows="5" style="font-size: 16px; transition: font-size 200ms ease;" placeholder="Upload a presentation above to automatically extract and narrate slide text...">Welcome to Audiogram Studio. Upload any presentation or document to translate and hear sweet, realistic Indian voices.</textarea>
+                                                </div>
+                                                <button type="submit" class="btn btn-create-audiogram w-100 py-2">🔊 Generate Audiogram Speech</button>
+                                            </form>
+                                        </div>
+                                        <div>
+                                            <div id="synthStatus" class="mt-3 text-info small"></div>
+                                            <audio id="audioPlayer" controls class="w-100 mt-3" style="display: none; border-radius: 10px;"></audio>
+                                            <a id="downloadAudioBtn" class="btn btn-outline-light w-100 mt-2 py-2" style="display: none; border-radius: 10px; font-weight: 600;" download="synthesized_speech.wav">📥 Download Audio (.wav)</a>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+    </div>
+
+    <!-- Space Footer -->
+    <footer id="footer" class="footer-audiogram">
+        <div class="container">
+            <div class="row g-4 text-secondary small">
+                <div class="col-md-3">
+                    <h5 class="text-white h6 mb-3">MENU</h5>
+                    <p><a href="#hero" class="text-secondary text-decoration-none">Planets</a></p>
+                    <p><a href="#night" class="text-secondary text-decoration-none">Trailers</a></p>
+                    <p><a href="#studio" class="text-secondary text-decoration-none">Studio</a></p>
+                </div>
+                <div class="col-md-3">
+                    <h5 class="text-white h6 mb-3">LANGUAGES</h5>
+                    <p>Kannada • Hindi • Indian English</p>
+                    <p>Tamil • Telugu • Malayalam</p>
+                    <p>Marathi • Bengali • Gujarati • Urdu</p>
+                </div>
+                <div class="col-md-3">
+                    <h5 class="text-white h6 mb-3">AUDIO ENGINE</h5>
+                    <p>5-Layer Human Warmth DSP</p>
+                    <p>Sweet Female Resonance</p>
+                    <p>100% Serverless Vercel Architecture</p>
+                </div>
+                <div class="col-md-3 text-md-end">
+                    <h5 class="text-white h6 mb-3">ORBITAL DATA</h5>
+                    <p>39 Indian Voices</p>
+                    <p>© 2026 Audiogram Studio</p>
+                </div>
+            </div>
+        </div>
+        <div class="giant-wordmark">audiogram</div>
+    </footer>
+
+    <!-- Three.js Real Earth & Deep Space Starfield Engine -->
+    <script>
+        // -------------------------------------------------------------
+        // 1. Deep Space Glittering Starfield (Sparkling Cosmos & Diamond Stars)
+        // -------------------------------------------------------------
+        const starCanvas = document.getElementById('stars-canvas');
+        const starCtx = starCanvas.getContext('2d');
+        let stars = [];
+
+        function initStars() {
+            starCanvas.width = window.innerWidth;
+            starCanvas.height = window.innerHeight;
+            stars = [];
+            const numStars = Math.floor(window.innerWidth > 768 ? 480 : 180);
+
+            const colors = [
+                'rgba(255, 255, 255, ',
+                'rgba(240, 248, 255, ',
+                'rgba(190, 225, 255, ',
+                'rgba(230, 220, 255, ',
+                'rgba(255, 252, 230, '
+            ];
+
+            for (let i = 0; i < numStars; i++) {
+                const isSparkle = Math.random() < 0.14; // 14% sparkling diamond glitter stars
+                stars.push({
+                    x: Math.random() * starCanvas.width,
+                    y: Math.random() * starCanvas.height,
+                    radius: isSparkle ? (Math.random() * 1.4 + 1.1) : (Math.random() * 0.8 + 0.3),
+                    baseAlpha: Math.random() * 0.5 + 0.3,
+                    speed: Math.random() * 0.008 + 0.003,
+                    phase: Math.random() * Math.PI * 2,
+                    isSparkle: isSparkle,
+                    sparkleSize: Math.random() * 7 + 4,
+                    color: colors[Math.floor(Math.random() * colors.length)]
+                });
+            }
+        }
+        initStars();
+
+        function drawStars() {
+            starCtx.clearRect(0, 0, starCanvas.width, starCanvas.height);
+            const time = performance.now() * 0.001;
+
+            stars.forEach(s => {
+                // Multi-frequency twinkling shimmer
+                const twinkle = Math.sin(time * s.speed * 12 + s.phase) * 0.35 +
+                                Math.cos(time * s.speed * 20 + s.phase * 2) * 0.2;
+                const currentAlpha = Math.max(0.12, Math.min(1.0, s.baseAlpha + twinkle));
+
+                // Star core
+                starCtx.beginPath();
+                starCtx.arc(s.x, s.y, s.radius, 0, Math.PI * 2);
+                starCtx.fillStyle = `${s.color}${currentAlpha})`;
+                starCtx.fill();
+
+                // 4-point diamond sparkle glint
+                if (s.isSparkle && currentAlpha > 0.52) {
+                    const spLen = s.sparkleSize * (currentAlpha * 0.85);
+                    starCtx.strokeStyle = `${s.color}${(currentAlpha - 0.3) * 0.9})`;
+                    starCtx.lineWidth = 0.75;
+
+                    starCtx.beginPath();
+                    starCtx.moveTo(s.x - spLen, s.y);
+                    starCtx.lineTo(s.x + spLen, s.y);
+                    starCtx.stroke();
+
+                    starCtx.beginPath();
+                    starCtx.moveTo(s.x, s.y - spLen);
+                    starCtx.lineTo(s.x, s.y + spLen);
+                    starCtx.stroke();
+                }
+            });
+
+            requestAnimationFrame(drawStars);
+        }
+        drawStars();
+
+        // -------------------------------------------------------------
+        // 2. Three.js Real Earth with NASA Blue Marble Satellite Textures
+        // -------------------------------------------------------------
+        const container = document.getElementById('webgl-container');
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(40, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.set(0, 0, 5.2);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        container.appendChild(renderer.domElement);
+
+        const textureLoader = new THREE.TextureLoader();
+
+        // High-Resolution NASA Blue Marble Textures
+        const dayTexture = textureLoader.load('/textures/earth_day.jpg');
+        const nightTexture = textureLoader.load('/textures/earth_night.png');
+        const cloudTexture = textureLoader.load('/textures/earth_clouds.png');
+        const specularTexture = textureLoader.load('/textures/earth_specular.jpg');
+
+        // Exactly ONE Earth Sphere (Clean satellite photography, no green boundary)
+        const earthRadius = 1.95;
+        const earthGeometry = new THREE.SphereGeometry(earthRadius, 128, 128);
+        const earthMaterial = new THREE.MeshPhongMaterial({
+            map: dayTexture,
+            specularMap: specularTexture,
+            specular: new THREE.Color(0x333333),
+            shininess: 12
+        });
+        const earthMesh = new THREE.Mesh(earthGeometry, earthMaterial);
+        scene.add(earthMesh);
+
+        // Separate Cloud Shell
+        const cloudGeometry = new THREE.SphereGeometry(earthRadius * 1.012, 128, 128);
+        const cloudMaterial = new THREE.MeshPhongMaterial({
+            map: cloudTexture,
+            transparent: true,
+            opacity: 0.38,
+            blending: THREE.NormalBlending,
+            depthWrite: false
+        });
+        const cloudMesh = new THREE.Mesh(cloudGeometry, cloudMaterial);
+        scene.add(cloudMesh);
+
+        // Directional Key Sunlight
+        const sunLight = new THREE.DirectionalLight(0xffffff, 1.6);
+        sunLight.position.set(5, 2.5, 4);
+        scene.add(sunLight);
+
+        // Subtle Space Ambient Light
+        const ambientLight = new THREE.AmbientLight(0x0a1428, 0.28);
+        scene.add(ambientLight);
+
+        // Initial Earth Position (Large on Right side matching Screenshot)
+        earthMesh.position.set(1.4, 0.05, 0);
+        cloudMesh.position.copy(earthMesh.position);
+        earthMesh.rotation.y = 3.8; // Align continents aesthetically
+
+        // -------------------------------------------------------------
+        // 3. Continuous Scroll Animation Controller (12.57s Video Motion)
+        // -------------------------------------------------------------
+        let targetRotY = earthMesh.rotation.y;
+        let targetPosX = earthMesh.position.x;
+        let targetPosY = earthMesh.position.y;
+        let targetSunX = sunLight.position.x;
+        let targetSunZ = sunLight.position.z;
+
+        function updateScroll() {
+            const scrollY = window.scrollY;
+            const maxScroll = document.documentElement.scrollHeight - window.innerHeight;
+            const progress = Math.min(Math.max(scrollY / (maxScroll || 1), 0), 1);
+
+            // 4 Solved Framings based on Specification:
+            // 0.0 - 0.30: Daylight Overhead (Hero): Earth right, sunlight daylight
+            // 0.30 - 0.65: Night Limb State: Earth swings, city lights emerge
+            // 0.65 - 0.85: Crescent State: Sun swings behind creating rim light
+            // 0.85 - 1.00: Audiogram Studio State: Earth centered bottom
+            if (progress < 0.3) {
+                const p = progress / 0.3;
+                targetPosX = 1.4 - p * 0.4;
+                targetPosY = 0.05 - p * 0.1;
+                targetSunX = 5 - p * 8;
+                targetSunZ = 4 - p * 6;
+            } else if (progress < 0.7) {
+                const p = (progress - 0.3) / 0.4;
+                targetPosX = -0.6 + p * 0.6;
+                targetPosY = -0.05;
+                targetSunX = -3;
+                targetSunZ = -2 + p * 6;
+            } else {
+                const p = (progress - 0.7) / 0.3;
+                targetPosX = 0;
+                targetPosY = -0.4 + p * 0.1;
+                targetSunX = 3.5;
+                targetSunZ = 4.5;
+            }
+
+            targetRotY = 3.8 + progress * Math.PI * 1.8;
+        }
+
+        window.addEventListener('scroll', updateScroll);
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            // Smooth spring-like lerp motion
+            earthMesh.rotation.y += (targetRotY - earthMesh.rotation.y) * 0.04 + 0.0006;
+            cloudMesh.rotation.y += (targetRotY - earthMesh.rotation.y) * 0.04 + 0.0008; // subtle independent cloud drift
+
+            earthMesh.position.x += (targetPosX - earthMesh.position.x) * 0.05;
+            earthMesh.position.y += (targetPosY - earthMesh.position.y) * 0.05;
+            cloudMesh.position.copy(earthMesh.position);
+
+            sunLight.position.x += (targetSunX - sunLight.position.x) * 0.05;
+            sunLight.position.z += (targetSunZ - sunLight.position.z) * 0.05;
+
+            renderer.render(scene, camera);
+        }
+        animate();
+
+        window.addEventListener('resize', () => {
+            initStars();
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        // -------------------------------------------------------------
+        // 4. Audiogram Backend Voice & Presentation Studio Handlers
+        // -------------------------------------------------------------
+        let parsedDocumentData = null;
+
+        fetch('/api/voices')
+            .then(res => res.json())
+            .then(data => {
+                const select = document.getElementById('voiceSelect');
+                select.innerHTML = '';
+                data.choices.forEach(c => {
+                    const opt = document.createElement('option');
+                    opt.value = c.value;
+                    opt.textContent = c.label;
+                    select.appendChild(opt);
+                });
+            });
+
+        function detectLanguageAndSelectVoice(text) {
+            const select = document.getElementById('voiceSelect');
+            const badge = document.getElementById('langBadge');
+
+            let detectedLang = "Indian English";
+            let targetVoice = "gallery:neerja_soft_in_f"; // Sweet Indian English Female
+
+            if (/[\u0C80-\u0CFF]/.test(text)) {
+                detectedLang = "Kannada (ಕನ್ನಡ)";
+                targetVoice = "gallery:sapna_soft_kn_f"; // Sweet Kannada Female
+            } else if (/[\u0900-\u097F]/.test(text)) {
+                detectedLang = "Hindi (हिंदी)";
+                targetVoice = "gallery:swara_soft_hi_f"; // Sweet Hindi Female
+            } else if (/[\u0B80-\u0BFF]/.test(text)) {
+                detectedLang = "Tamil (தமிழ்)";
+                targetVoice = "gallery:pallavi_ta_f";
+            } else if (/[\u0C00-\u0C7F]/.test(text)) {
+                detectedLang = "Telugu (తెలుగు)";
+                targetVoice = "gallery:shruti_te_f";
+            } else if (/[\u0D00-\u0D7F]/.test(text)) {
+                detectedLang = "Malayalam (മലയാളം)";
+                targetVoice = "gallery:sobhana_ml_f";
+            } else if (/[\u0600-\u06FF]/.test(text)) {
+                detectedLang = "Urdu (اردو)";
+                targetVoice = "gallery:salman_ur_m";
+            } else if (/[\u0A80-\u0AFF]/.test(text)) {
+                detectedLang = "Gujarati (ગુજરાતી)";
+                targetVoice = "gallery:dhwani_gu_f";
+            } else if (/[\u0980-\u09FF]/.test(text)) {
+                detectedLang = "Bengali (বাংলা)";
+                targetVoice = "gallery:tanishaa_bn_f";
+            }
+
+            badge.textContent = "🌐 " + detectedLang;
+            badge.style.display = "inline-block";
+
+            for (let i = 0; i < select.options.length; i++) {
+                if (select.options[i].value === targetVoice) {
+                    select.selectedIndex = i;
+                    break;
+                }
+            }
+        }
+
+        async function triggerSynthesis() {
+            const text = document.getElementById('synthText').value;
+            const voiceId = document.getElementById('voiceSelect').value;
+            const status = document.getElementById('synthStatus');
+            const player = document.getElementById('audioPlayer');
+            const downloadBtn = document.getElementById('downloadAudioBtn');
+
+            if (!text.trim()) return;
+
+            status.textContent = '⚡ Synthesizing sweet humanized speech audio...';
+            player.style.display = 'none';
+            if (downloadBtn) downloadBtn.style.display = 'none';
+
+            try {
+                const res = await fetch('/api/synthesize', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ text: text, voice_id: voiceId })
+                });
+                if (!res.ok) throw new Error(await res.text());
+                const blob = await res.blob();
+                const audioUrl = URL.createObjectURL(blob);
+                player.src = audioUrl;
+                player.style.display = 'block';
+                player.play();
+
+                if (downloadBtn) {
+                    downloadBtn.href = audioUrl;
+                    downloadBtn.download = `audiogram_speech_${Date.now()}.wav`;
+                    downloadBtn.style.display = 'block';
+                }
+                status.textContent = '🎉 Audiogram generated successfully!';
+            } catch (err) {
+                status.textContent = '❌ Synthesis error: ' + err.message;
+            }
+        }
+
+        document.getElementById('parseForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const fileInput = document.getElementById('docFile');
+            if (!fileInput.files.length) return;
+
+            const status = document.getElementById('parseStatus');
+            const slideNavContainer = document.getElementById('slideNavContainer');
+            const translationContainer = document.getElementById('translationContainer');
+            const slideSelect = document.getElementById('slideSelect');
+            const autoLang = document.getElementById('autoLangSelect').value;
+
+            status.textContent = '⚡ Parsing presentation document...';
+            const formData = new FormData();
+            formData.append('file', fileInput.files[0]);
+
+            try {
+                const res = await fetch('/api/parse', { method: 'POST', body: formData });
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                const data = await res.json();
+                parsedDocumentData = data;
+
+                status.textContent = `✅ Extracted ${data.doc_type.toUpperCase()} file (${data.total_slides} slides/sections)!`;
+
+                slideSelect.innerHTML = '';
+                if (data.slides && data.slides.length > 0) {
+                    data.slides.forEach((s, idx) => {
+                        const opt = document.createElement('option');
+                        opt.value = idx;
+                        opt.textContent = `Slide ${s.slide_index}: ${s.title || 'Untitled'}`;
+                        slideSelect.appendChild(opt);
+                    });
+                }
+                const allOpt = document.createElement('option');
+                allOpt.value = 'ALL';
+                allOpt.textContent = `📖 Entire Presentation (${data.total_slides} slides combined)`;
+                slideSelect.appendChild(allOpt);
+
+                slideNavContainer.style.display = 'block';
+                translationContainer.style.display = 'block';
+
+                let text = (data.slides && data.slides.length > 0) ? (data.slides[0].speaker_notes || data.slides[0].raw_text) : data.full_text;
+
+                if (autoLang !== 'NONE') {
+                    status.textContent = `⚡ Translating Slide 1 content to ${autoLang.toUpperCase()}...`;
+                    const transRes = await fetch('/api/translate', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ text: text, target_lang: autoLang })
+                    });
+                    if (transRes.ok) {
+                        const transData = await transRes.json();
+                        text = transData.translated_text;
+                    }
+                }
+
+                document.getElementById('synthText').value = text;
+                detectLanguageAndSelectVoice(text);
+                await triggerSynthesis();
+            } catch (err) {
+                status.textContent = '❌ Parsing error: ' + err.message;
+            }
+        });
+
+        document.getElementById('slideSelect').addEventListener('change', (e) => {
+            if (!parsedDocumentData) return;
+            const val = e.target.value;
+            let text = (val === 'ALL') ? parsedDocumentData.full_text : (parsedDocumentData.slides[parseInt(val, 10)].speaker_notes || parsedDocumentData.slides[parseInt(val, 10)].raw_text);
+            document.getElementById('synthText').value = text;
+            detectLanguageAndSelectVoice(text);
+        });
+
+        document.getElementById('translateBtn').addEventListener('click', async () => {
+            const currentText = document.getElementById('synthText').value;
+            const targetLang = document.getElementById('targetLangSelect').value;
+            const status = document.getElementById('parseStatus');
+            if (!currentText.trim()) return;
+
+            status.textContent = '⚡ Translating selection...';
+            try {
+                const res = await fetch('/api/translate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ text: currentText, target_lang: targetLang })
+                });
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                const data = await res.json();
+                document.getElementById('synthText').value = data.translated_text;
+                detectLanguageAndSelectVoice(data.translated_text);
+                status.textContent = '🎉 Translated! Ready for narration.';
+                await triggerSynthesis();
+            } catch (err) {
+                status.textContent = '❌ Translation failed: ' + err.message;
+            }
+        });
+
+        // Text Size Toggle Handlers
+        document.querySelectorAll('.btn-text-size').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.btn-text-size').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                const size = btn.getAttribute('data-size');
+                document.getElementById('synthText').style.fontSize = size;
+            });
+        });
+
+        // Direct i18n Narration Translation Handler
+        document.getElementById('directTranslateBtn').addEventListener('click', async () => {
+            const currentText = document.getElementById('synthText').value;
+            const targetLang = document.getElementById('directTranslateLangSelect').value;
+            const status = document.getElementById('synthStatus');
+            if (!currentText.trim()) return;
+
+            status.textContent = '⚡ Translating narration text directly...';
+            try {
+                const res = await fetch('/api/translate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ text: currentText, target_lang: targetLang })
+                });
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                const data = await res.json();
+                document.getElementById('synthText').value = data.translated_text;
+                detectLanguageAndSelectVoice(data.translated_text);
+                status.textContent = '🎉 Narration text translated! Select voice below to synthesize.';
+            } catch (err) {
+                status.textContent = '❌ Narration translation failed: ' + err.message;
+            }
+        });
+
+        document.getElementById('synthForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            await triggerSynthesis();
+        });
+    </script>
+</body>
+</html>

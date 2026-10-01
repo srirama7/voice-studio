@@ -1,0 +1,16 @@
+# Ignore large build artifacts, local audio/video caches, and temp files
+cache/
+checkpoints/
+outputs/
+.pytest_cache/
+.gradio/
+__pycache__/
+*.wav
+*.mp3
+*.mp4
+*.pth
+*.log
+*.json
+!vercel.json
+VOICE_VERIFICATION_MATRIX.json
+test_batch*.json

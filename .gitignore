@@ -1,0 +1,9 @@
+# Local runtime artifacts - never upload these (large + private voice data).
+__pycache__/
+.pytest_cache/
+cache/
+checkpoints/
+outputs/
+*.log
+
+.vercel

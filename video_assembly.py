@@ -367,14 +367,8 @@ class VideoAssembly:
         #   3-5x libx264 for 1080p; probed once, then cached.
         long_video = total_audio_duration > 600
         fps = 5 if long_video else 15
-        encoder, enc_args = pick_video_encoder()
-        use_x264 = encoder == "libx264"
-        preset = "ultrafast" if (long_video or encoder != "libx264") else "veryfast"
-        if use_x264:
-            vcodec_args = ["-c:v", "libx264", "-preset", preset,
-                           "-tune", "stillimage", "-crf", "23"]
-        else:
-            vcodec_args = ["-c:v", encoder] + enc_args
+        # Always use libx264 for image concat rendering to avoid h264_mf GPU hangs
+        vcodec_args = ["-c:v", "libx264", "-preset", "ultrafast", "-tune", "stillimage", "-crf", "23"]
 
         def _build_cmd(first_image: Optional[Path] = None) -> List[str]:
             if first_image is None:
@@ -383,6 +377,7 @@ class VideoAssembly:
                     "-f", "concat", "-safe", "0",
                     "-i", str(concat_list_path),
                     "-i", str(audio_path),
+                    "-t", f"{total_audio_duration:.3f}",
                 ] + vcodec_args + [
                     "-r", str(fps), "-pix_fmt", "yuv420p",
                     "-c:a", "aac", "-b:a", "192k",
@@ -393,6 +388,7 @@ class VideoAssembly:
                 "ffmpeg", "-y", "-nostdin", "-hide_banner", "-loglevel", "error",
                 "-loop", "1", "-i", str(first_image),
                 "-i", str(audio_path),
+                "-t", f"{total_audio_duration:.3f}",
             ] + vcodec_args + [
                 "-c:a", "aac", "-b:a", "192k", "-pix_fmt", "yuv420p",
                 "-progress", str(progress_path), "-nostats",
