@@ -262,6 +262,20 @@ def handle_job_monitor(job_id_search: str) -> Tuple[str, Dict, Optional[str], Op
     return status_summary, checkpoint.to_dict(), audio_res, audio_res, video_res, srt_res
 
 
+def handle_job_cleanup(max_age_days: int = 7) -> str:
+    """Handler: clean up old output job folders to reclaim disk space."""
+    try:
+        from job_engine import cleanup_old_jobs
+        outputs_dir = config.paths.outputs_dir
+        count = cleanup_old_jobs(outputs_dir, max_age_days=max_age_days)
+        if count > 0:
+            return f"🧹 Successfully cleaned up **{count}** job output directories older than {max_age_days} days!"
+        return f"✨ No job output directories older than {max_age_days} days were found. Disk space is clean."
+    except Exception as exc:
+        logger.error("Job cleanup failed: %s", exc)
+        return f"❌ Cleanup failed: `{exc}`"
+
+
 def refresh_voice_list() -> Any:
     return gr.Dropdown(choices=all_voice_choices(), value=default_voice_value())
 
@@ -465,7 +479,9 @@ def build_app() -> gr.Blocks:
                             label="Job ID",
                             placeholder="e.g. job_a1b2c3d4",
                         )
-                        inspect_button = gr.Button("Inspect Job Checkpoint", variant="secondary")
+                        with gr.Row():
+                            inspect_button = gr.Button("Inspect Job Checkpoint", variant="secondary")
+                            cleanup_button = gr.Button("🧹 Clean Old Jobs (7+ Days)", variant="stop")
 
                     with gr.Column(scale=1):
                         monitor_status_output = gr.Markdown("Enter Job ID to view state.")
@@ -542,6 +558,12 @@ def build_app() -> gr.Blocks:
                 monitored_video,
                 monitored_srt,
             ],
+        )
+
+        cleanup_button.click(
+            fn=handle_job_cleanup,
+            inputs=[],
+            outputs=[monitor_status_output],
         )
 
     return demo

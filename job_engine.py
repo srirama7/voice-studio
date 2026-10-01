@@ -634,3 +634,36 @@ class JobEngine:
                 except Exception:
                     pass
             raise RuntimeError(f"Job execution failed for {job_id}: {exc}") from exc
+
+
+def cleanup_old_jobs(outputs_dir: Union[str, Path], max_age_days: int = 7) -> int:
+    """Clean up old job output folders in outputs_dir older than max_age_days.
+
+    Args:
+        outputs_dir: Path to outputs directory.
+        max_age_days: Cutoff threshold in days.
+
+    Returns:
+        Number of cleaned job folders.
+    """
+    outputs_path = Path(outputs_dir)
+    if not outputs_path.exists():
+        return 0
+
+    now = time.time()
+    max_age_sec = max_age_days * 86400
+    cleaned_count = 0
+
+    for job_folder in outputs_path.iterdir():
+        if job_folder.is_dir() and (job_folder.name.startswith("job_") or job_folder.name.startswith("test_")):
+            try:
+                mtime = job_folder.stat().st_mtime
+                if now - mtime > max_age_sec:
+                    import shutil
+                    shutil.rmtree(job_folder)
+                    cleaned_count += 1
+                    logger.info("Cleaned up old job folder: %s", job_folder)
+            except Exception as exc:
+                logger.warning("Failed to remove old job folder %s: %s", job_folder, exc)
+
+    return cleaned_count
