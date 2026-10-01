@@ -58,6 +58,7 @@ class JobCheckpoint:
     voice_id: str
     text_mode: str = "exact"
     language: str = "en-in"
+    speed: float = 1.0
     gallery_voice: str = ""  # gallery voice id (e.g. 'prabhat_in_m'); '' = cloned voice
     status: JobStatus = JobStatus.QUEUED
     current_step_index: int = 0
@@ -455,11 +456,11 @@ class JobEngine:
                         try:
                             if gallery_adapter is not None:
                                 audio, sr = gallery_adapter.synthesize(
-                                    text, speaker_wav=None, language=checkpoint.language
+                                    text, speaker_wav=None, language=checkpoint.language, speed=checkpoint.speed
                                 )
                             else:
                                 audio, sr = self.tts_synthesizer.primary_adapter.synthesize(
-                                    text, speaker_wav=voice_ref_wav, language=checkpoint.language
+                                    text, speaker_wav=voice_ref_wav, language=checkpoint.language, speed=checkpoint.speed
                                 )
                             if len(audio) > 0:
                                 return audio, sr
@@ -470,7 +471,7 @@ class JobEngine:
                                            idx, attempt + 1, exc)
                             time.sleep(2 * (attempt + 1))
                     audio, sr = self.tts_synthesizer.fallback_adapter.synthesize(
-                        text, speaker_wav=voice_ref_wav, language=checkpoint.language
+                        text, speaker_wav=voice_ref_wav, language=checkpoint.language, speed=checkpoint.speed
                     )
                     if len(audio) == 0:
                         raise RuntimeError(f"Chunk {idx} failed: {last_exc}")

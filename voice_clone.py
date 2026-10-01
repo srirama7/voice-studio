@@ -746,8 +746,18 @@ class EdgeTTSAdapter(TTSAdapter):
             chunks.append(current)
         return chunks if chunks else [text]
 
+    def _calc_rate(self, speed: float = 1.0, rate: Optional[str] = None) -> str:
+        if rate:
+            return rate
+        if speed != 1.0:
+            speed_pct = int(round((speed - 1.0) * 100))
+            persona_pct = int(self.forced_rate.replace("%", "").replace("+", "")) if (self.forced_rate and self.forced_rate != "+0%") else 0
+            total_pct = persona_pct + speed_pct
+            return f"+{total_pct}%" if total_pct >= 0 else f"{total_pct}%"
+        return self.forced_rate if self.forced_voice else "+0%"
+
     def synthesize(self, text: str, speaker_wav: Optional[str] = None,
-                   language: str = "en") -> Tuple[np.ndarray, int]:
+                   language: str = "en", speed: float = 1.0, rate: Optional[str] = None) -> Tuple[np.ndarray, int]:
         clean = self._clean_text(text)
         if not clean:
             return np.zeros(0, dtype=np.float32), self.sample_rate
@@ -764,7 +774,7 @@ class EdgeTTSAdapter(TTSAdapter):
             raise RuntimeError("edge-tts package not installed.") from exc
 
         voice = self.pick_base_voice(speaker_wav, language)
-        rate = self.forced_rate if self.forced_voice else "+0%"
+        effective_rate = self._calc_rate(speed=speed, rate=rate)
         pitch = self.forced_pitch if self.forced_voice else "+0Hz"
 
         chunks = self._chunk_text(clean, max_chars=1000)
@@ -776,7 +786,7 @@ class EdgeTTSAdapter(TTSAdapter):
             native_voice = native_pair[1] if is_female else native_pair[0]
 
             attempts = [
-                (v, rate, pitch),
+                (v, effective_rate, pitch),
                 (v, "+0%", "+0Hz"),
                 (native_voice, "+0%", "+0Hz"),
                 ("en-IN-PrabhatNeural", "+0%", "+0Hz")
@@ -936,7 +946,7 @@ class CloningTTSAdapter(TTSAdapter):
         return self.primary.is_available() or self.fallback.is_available()
 
     def synthesize(self, text: str, speaker_wav: Optional[str] = None,
-                   language: str = "en") -> Tuple[np.ndarray, int]:
+                   language: str = "en", speed: float = 1.0, rate: Optional[str] = None) -> Tuple[np.ndarray, int]:
         if not text.strip():
             return np.zeros(0, dtype=np.float32), self.sample_rate
         last_exc: Optional[Exception] = None
@@ -944,8 +954,10 @@ class CloningTTSAdapter(TTSAdapter):
             try:
                 if not adapter.is_available():
                     continue
-                base, sr = adapter.synthesize(text, speaker_wav=speaker_wav,
-                                              language=language)
+                try:
+                    base, sr = adapter.synthesize(text, speaker_wav=speaker_wav, language=language, speed=speed, rate=rate)
+                except TypeError:
+                    base, sr = adapter.synthesize(text, speaker_wav=speaker_wav, language=language)
                 if len(base) == 0:
                     continue
                 morphed = VoiceConverter.convert(base, sr, speaker_wav)

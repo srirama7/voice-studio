@@ -30,6 +30,7 @@ def test_handle_document_generation_signature():
         voice_id="speaker_01",
         text_mode="exact",
         language="en-in",
+        speech_speed="1.15x (Slightly Faster)",
     )
     assert "Please upload" in status
     assert audio_res is None
@@ -46,3 +47,18 @@ def test_handle_job_monitor_signature():
     assert audio_download is None
     assert video_res is None
     assert srt_res is None
+
+
+def test_edge_tts_rate_calculation():
+    from voice_clone import EdgeTTSAdapter
+    adapter = EdgeTTSAdapter()
+    
+    # 1.0 speed -> +0%
+    assert adapter._calc_rate(1.0, None) == "+0%"
+    # 1.25 speed -> +25%
+    assert adapter._calc_rate(1.25, None) == "+25%"
+    # 0.75 speed -> -25%
+    assert adapter._calc_rate(0.75, None) == "-25%"
+    # Explicit rate string override
+    assert adapter._calc_rate(1.0, "-10%") == "-10%"
+

@@ -482,11 +482,23 @@
                                         <div>
                                             <h4 class="h5 text-purple mb-3">🗣️ 2. Select Indian Voice Profile</h4>
                                             <form id="synthForm">
-                                                <div class="mb-3">
-                                                    <label class="form-label text-secondary small">Voice Profile (39 Total Available):</label>
-                                                    <select class="form-select" id="voiceSelect" required>
-                                                        <option value="">Loading voices...</option>
-                                                    </select>
+                                                <div class="row g-2 mb-3">
+                                                    <div class="col-md-7">
+                                                        <label class="form-label text-secondary small">Voice Profile (39 Total Available):</label>
+                                                        <select class="form-select" id="voiceSelect" required>
+                                                            <option value="">Loading voices...</option>
+                                                        </select>
+                                                    </div>
+                                                    <div class="col-md-5">
+                                                        <label class="form-label text-secondary small">Speaker Speed:</label>
+                                                        <select class="form-select" id="speechSpeedSelect">
+                                                            <option value="0.75">0.75x (Slower)</option>
+                                                            <option value="0.85">0.85x (Slightly Slower)</option>
+                                                            <option value="1.0" selected>1.00x (Normal)</option>
+                                                            <option value="1.15">1.15x (Slightly Faster)</option>
+                                                            <option value="1.25">1.25x (Faster)</option>
+                                                        </select>
+                                                    </div>
                                                 </div>
                                                 <div class="mb-2 d-flex flex-wrap justify-content-between align-items-center gap-2">
                                                     <label class="form-label text-secondary small mb-0">Presentation Narration Text</label>
@@ -848,6 +860,7 @@
         async function triggerSynthesis() {
             const text = document.getElementById('synthText').value;
             const voiceId = document.getElementById('voiceSelect').value;
+            const speed = parseFloat(document.getElementById('speechSpeedSelect')?.value || "1.0");
             const status = document.getElementById('synthStatus');
             const player = document.getElementById('audioPlayer');
             const downloadBtn = document.getElementById('downloadAudioBtn');
@@ -862,7 +875,7 @@
                 const res = await fetch('/api/synthesize', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ text: text, voice_id: voiceId })
+                    body: JSON.stringify({ text: text, voice_id: voiceId, speed: speed })
                 });
                 if (!res.ok) throw new Error(await res.text());
                 const blob = await res.blob();

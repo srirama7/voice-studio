@@ -32,12 +32,14 @@ class handler(BaseHTTPRequestHandler):
 
         text = ""
         voice_id = "gallery:prabhat_in_m"
+        speed = 1.0
 
         if 'application/json' in content_type:
             try:
                 data = json.loads(raw_body.decode('utf-8'))
                 text = data.get('text', '')
                 voice_id = data.get('voice_id', 'gallery:prabhat_in_m')
+                speed = float(data.get('speed', 1.0))
             except Exception:
                 pass
 
@@ -47,6 +49,11 @@ class handler(BaseHTTPRequestHandler):
                 params = urllib.parse.parse_qs(body_str)
                 text = params.get('text', [''])[0]
                 voice_id = params.get('voice_id', ['gallery:prabhat_in_m'])[0]
+                if 'speed' in params:
+                    try:
+                        speed = float(params.get('speed', ['1.0'])[0])
+                    except Exception:
+                        pass
                 
                 if not text:
                     m = re.search(r'name=["\']text["\']\r?\n\r?\n([^\r\n]+)', body_str)
@@ -82,7 +89,7 @@ class handler(BaseHTTPRequestHandler):
                     forced_rate=rate,
                     forced_pitch=pitch
                 )
-                waveform, sr = adapter.synthesize(text, language=lang)
+                waveform, sr = adapter.synthesize(text, language=lang, speed=speed)
 
             elif voice_id.startswith("stock:"):
                 v_name = voice_id.split(":", 1)[1]
@@ -90,7 +97,7 @@ class handler(BaseHTTPRequestHandler):
                 if "-" in v_name:
                     lang_code = v_name.split("-")[0]
                 adapter = EdgeTTSAdapter(forced_voice=v_name)
-                waveform, sr = adapter.synthesize(text, language=lang_code)
+                waveform, sr = adapter.synthesize(text, language=lang_code, speed=speed)
 
             else:
                 # Enrolled clone voice ID (e.g. "amogh", "speaker_01")
@@ -107,11 +114,11 @@ class handler(BaseHTTPRequestHandler):
                             ref_wav = str(wavs[0])
 
                 adapter = CloningTTSAdapter()
-                waveform, sr = adapter.synthesize(text, speaker_wav=ref_wav, language="en")
+                waveform, sr = adapter.synthesize(text, speaker_wav=ref_wav, language="en", speed=speed)
 
             if len(waveform) == 0:
                 adapter = EdgeTTSAdapter(forced_voice="en-IN-PrabhatNeural")
-                waveform, sr = adapter.synthesize(text, language="en")
+                waveform, sr = adapter.synthesize(text, language="en", speed=speed)
 
             pcm = np.clip(waveform * 32767.0, -32768, 32767).astype(np.int16)
             out_buffer = io.BytesIO()

@@ -173,6 +173,7 @@ def handle_document_generation(
     voice_id: str,
     text_mode: str,
     language: str,
+    speech_speed: str = "1.00x (Normal Speed)",
     progress=gr.Progress(),
 ) -> Tuple[str, Optional[str], Optional[str], Optional[str], Optional[str], Dict]:
     """Handler for Tab 2: Document Generation & Video Assembly."""
@@ -195,6 +196,16 @@ def handle_document_generation(
     if not language or not language.strip():
         language = "en-in"
 
+    speed_val = 1.0
+    if "0.75x" in speech_speed:
+        speed_val = 0.75
+    elif "0.85x" in speech_speed:
+        speed_val = 0.85
+    elif "1.15x" in speech_speed:
+        speed_val = 1.15
+    elif "1.25x" in speech_speed:
+        speed_val = 1.25
+
     job_id = f"job_{uuid.uuid4().hex[:8]}"
 
     def ui_progress_callback(status: JobStatus, pct: float, msg: str) -> None:
@@ -208,6 +219,7 @@ def handle_document_generation(
             text_mode=text_mode,
             language=language.strip(),
             gallery_voice=gallery_voice,
+            speed=speed_val,
             progress_callback=ui_progress_callback,
         )
 
@@ -416,6 +428,12 @@ def build_app() -> gr.Blocks:
                             label="🌍 Language / Accent",
                             info="Text language to speak. Gallery voices read any of these; cloned voices morph your timbre onto it.",
                         )
+                        speech_speed_radio = gr.Radio(
+                            choices=["0.75x (Slower)", "0.85x (Slightly Slower)", "1.00x (Normal Speed)", "1.15x (Slightly Faster)", "1.25x (Faster)"],
+                            value="1.00x (Normal Speed)",
+                            label="⏱️ Speaker Speech Speed Controller",
+                            info="Adjust playback pace to slow down fast-speaking voices or speed up slow narrators.",
+                        )
                         generate_button = gr.Button("⚡ Generate Voice Presentation", variant="primary")
 
                     with gr.Column(scale=1):
@@ -524,7 +542,7 @@ def build_app() -> gr.Blocks:
 
         generate_button.click(
             fn=handle_document_generation,
-            inputs=[doc_file_input, voice_id_select, text_mode_radio, language_select],
+            inputs=[doc_file_input, voice_id_select, text_mode_radio, language_select, speech_speed_radio],
             outputs=[
                 gen_status_output,
                 mastered_audio_player,
