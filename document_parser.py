@@ -265,8 +265,25 @@ class DocumentParser:
             sections = re.split(r"(?m)^(?=#+\s+)", content)
         elif "---" in content:
             sections = content.split("---")
-        else:
+        elif "\n\n\n" in content:
             sections = content.split("\n\n\n")
+        else:
+            # If text is long (>1200 chars), group by paragraphs into ~800-1200 char slides
+            raw_paras = [p.strip() for p in content.split("\n\n") if p.strip()]
+            if len(raw_paras) > 1 and len(content) > 1200:
+                sections = []
+                buf = ""
+                for p in raw_paras:
+                    if len(buf) + len(p) + 2 <= 1000:
+                        buf = f"{buf}\n\n{p}".strip()
+                    else:
+                        if buf:
+                            sections.append(buf)
+                        buf = p
+                if buf:
+                    sections.append(buf)
+            else:
+                sections = [content]
 
         slides_data: List[SlideData] = []
         for idx, sec in enumerate(sections, start=1):

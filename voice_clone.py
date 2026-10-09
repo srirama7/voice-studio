@@ -762,11 +762,11 @@ class EdgeTTSAdapter(TTSAdapter):
         if not clean:
             return np.zeros(0, dtype=np.float32), self.sample_rate
 
-        # Safety cap for serverless execution: max 2500 chars per request (~3 slides)
-        # Prevents Vercel 10s timeout and 4.5MB payload response size limit exceed
-        if len(clean) > 2500:
-            logger.info("Text length (%d chars) exceeds serverless 2500 char cap; clamping.", len(clean))
-            clean = clean[:2500]
+        # Serverless execution safety limit (configurable via SERVERLESS_MAX_CHARS if running in constrained functions)
+        serverless_cap = int(os.getenv("SERVERLESS_MAX_CHARS", "0"))
+        if serverless_cap > 0 and len(clean) > serverless_cap:
+            logger.info("Text length (%d chars) exceeds serverless %d char cap; clamping.", len(clean), serverless_cap)
+            clean = clean[:serverless_cap]
 
         try:
             import edge_tts
@@ -817,7 +817,15 @@ class EdgeTTSAdapter(TTSAdapter):
             return waveform.astype(np.float32)
 
         async def _run_all(v: str) -> np.ndarray:
-            tasks = [_synth_chunk(c, v) for c in chunks]
+            # Bounded concurrency semaphore (max 5 simultaneous EdgeTTS streams)
+            # Prevents WebSocket socket drops and rate-limiting on large 15-20 min documents
+            sem = asyncio.Semaphore(5)
+
+            async def _bounded_synth(chunk_text: str) -> np.ndarray:
+                async with sem:
+                    return await _synth_chunk(chunk_text, v)
+
+            tasks = [_bounded_synth(c) for c in chunks]
             audios = await asyncio.gather(*tasks)
             valid = [a for a in audios if a is not None and len(a) > 0]
             if not valid:
