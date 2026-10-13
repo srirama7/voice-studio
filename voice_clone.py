@@ -529,6 +529,7 @@ GALLERY_VOICES: dict[str, dict[str, str]] = {
     "niranjan_gu_m": {"voice": "gu-IN-NiranjanNeural", "gender": "Male", "lang": "gu", "label": "Niranjan — Gujarati, male"},
     "dhwani_gu_f": {"voice": "gu-IN-DhwaniNeural", "gender": "Female", "lang": "gu", "label": "Dhwani — Gujarati, female"},
     "salman_ur_m": {"voice": "ur-IN-SalmanNeural", "gender": "Male", "lang": "ur", "label": "Salman — Urdu, male"},
+    "gul_ur_f": {"voice": "ur-IN-GulNeural", "gender": "Female", "lang": "ur", "label": "Gul — Urdu, female"},
 }
 
 
@@ -688,7 +689,13 @@ class EdgeTTSAdapter(TTSAdapter):
         for info in GALLERY_VOICES.values():
             if info["voice"] == voice_name:
                 return info["gender"]
-        if "Jenny" in voice_name or "Neerja" in voice_name or "Swara" in voice_name:
+        for m_voice, f_voice in cls.NATIVE_VOICES.values():
+            if voice_name == f_voice:
+                return "Female"
+            if voice_name == m_voice:
+                return "Male"
+        females = ("neerja", "swara", "sapna", "pallavi", "shruti", "sobhana", "aarohi", "tanishaa", "dhwani", "gul", "jenny", "female")
+        if any(f in (voice_name or "").lower() for f in females):
             return "Female"
         return "Male"
 

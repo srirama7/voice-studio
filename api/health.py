@@ -61,10 +61,11 @@ class handler(BaseHTTPRequestHandler):
         except Exception as e:
             diag["adapter_error"] = f"{type(e).__name__}: {e}"
 
+        from voice_clone import GALLERY_VOICES
         response = {
             "status": "online",
             "service": "Voice Studio Enterprise",
-            "total_voices": 39,
+            "total_voices": len(GALLERY_VOICES) + 7,
             "supported_formats": [".pdf", ".pptx", ".txt", ".md", ".docx"],
             "diagnostics": diag
         }
