@@ -101,7 +101,9 @@ class handler(BaseHTTPRequestHandler):
 
             else:
                 # Enrolled clone voice ID (e.g. "amogh", "speaker_01")
-                ref_dir = Path(root_dir) / "voices" / voice_id
+                ref_dir = Path(root_dir) / "cache" / "voices" / voice_id
+                if not ref_dir.exists():
+                    ref_dir = Path(root_dir) / "voices" / voice_id
                 ref_wav = None
                 if ref_dir.exists():
                     for cand in ["ref.wav", "ref(1).wav", "speaker.wav"]:
