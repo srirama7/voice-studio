@@ -798,10 +798,27 @@
         // 4. Audiogram Backend Voice & Presentation Studio Handlers
         // -------------------------------------------------------------
         let parsedDocumentData = null;
+        let apiBase = '';
+        async function getApiBase() {
+            if (apiBase) return apiBase;
+            if (window.location.hostname !== '127.0.0.1' && window.location.hostname !== 'localhost') {
+                try {
+                    const test = await fetch('http://127.0.0.1:7860/api/health', { signal: AbortSignal.timeout(1200) });
+                    if (test.ok) {
+                        apiBase = 'http://127.0.0.1:7860';
+                        console.log('Connected to Local Voice Studio Server (Pure Neural Synthesis)');
+                        return apiBase;
+                    }
+                } catch (_) {}
+            }
+            return '';
+        }
 
-        fetch('/api/voices')
-            .then(res => res.json())
-            .then(data => {
+        async function loadVoices() {
+            try {
+                const base = await getApiBase();
+                const res = await fetch(`${base}/api/voices`);
+                const data = await res.json();
                 const select = document.getElementById('voiceSelect');
                 select.innerHTML = '';
                 data.choices.forEach(c => {
@@ -810,7 +827,22 @@
                     opt.textContent = c.label;
                     select.appendChild(opt);
                 });
-            });
+            } catch (_) {
+                fetch('/api/voices')
+                    .then(res => res.json())
+                    .then(data => {
+                        const select = document.getElementById('voiceSelect');
+                        select.innerHTML = '';
+                        data.choices.forEach(c => {
+                            const opt = document.createElement('option');
+                            opt.value = c.value;
+                            opt.textContent = c.label;
+                            select.appendChild(opt);
+                        });
+                    });
+            }
+        }
+        loadVoices();
 
         function detectLanguageAndSelectVoice(text) {
             const select = document.getElementById('voiceSelect');
@@ -871,7 +903,8 @@
             if (downloadBtn) downloadBtn.style.display = 'none';
 
             try {
-                const res = await fetch('/api/synthesize', {
+                const base = await getApiBase();
+                const res = await fetch(`${base}/api/synthesize`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ text: text, voice_id: voiceId, speed: speed })
