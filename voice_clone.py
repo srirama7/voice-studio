@@ -856,9 +856,6 @@ class EdgeTTSAdapter(TTSAdapter):
                     if os.path.exists(g_out) and os.path.getsize(g_out) > 0:
                         audio, _ = VoiceConverter.load_mono(g_out, self.sample_rate)
                         if len(audio) > 0:
-                            # Pitch-shift for male personas (Prabhat, Madhur, Gagan, etc.)
-                            if not is_female:
-                                audio = pitch_shift(audio, self.sample_rate, -4.5)
                             return audio
                 finally:
                     if os.path.exists(g_out):
@@ -898,9 +895,7 @@ class EdgeTTSAdapter(TTSAdapter):
                     segmented.append(pause)
 
             concat_audio = np.concatenate(segmented)
-            # Apply Acoustic Studio Humanization DSP with sweet female tuning
-            is_female = self._voice_gender(v) == "Female"
-            return apply_human_warmth_dsp(concat_audio, self.sample_rate, is_female=is_female)
+            return concat_audio.astype(np.float32)
 
         def _run_sync(v: str) -> np.ndarray:
             def _exec():
