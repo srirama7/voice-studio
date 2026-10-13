@@ -818,13 +818,47 @@ class EdgeTTSAdapter(TTSAdapter):
                 with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as g_tmp:
                     g_out = g_tmp.name
                 try:
+                    # Map EdgeTTS language codes → gTTS (lang, tld) pairs
+                    # gTTS only accepts 2-letter ISO 639-1 lang codes; tld drives accent
+                    _GTTS_MAP = {
+                        "en-in": ("en", "co.in"),
+                        "en":    ("en", "co.in"),  # default English → Indian accent
+                        "hi":    ("hi", "co.in"),
+                        "kn":    ("kn", "com"),
+                        "ta":    ("ta", "com"),
+                        "te":    ("te", "com"),
+                        "ml":    ("ml", "com"),
+                        "mr":    ("mr", "com"),
+                        "bn":    ("bn", "com"),
+                        "gu":    ("gu", "com"),
+                        "ur":    ("ur", "com"),
+                        "en-us": ("en", "com"),
+                        "en-gb": ("en", "co.uk"),
+                        "en-au": ("en", "com.au"),
+                    }
                     norm_l = self.norm_language(language)
-                    tld = "co.in" if norm_l == "en" else "com"
-                    g_tts = gTTS(c, lang=norm_l, tld=tld)
+                    v_target = (self.forced_voice or v or "").lower()
+                    if "en-in" in v_target:
+                        g_lang, g_tld = "en", "co.in"
+                    elif "en-us" in v_target:
+                        g_lang, g_tld = "en", "com"
+                    elif "en-gb" in v_target:
+                        g_lang, g_tld = "en", "co.uk"
+                    elif "en-au" in v_target:
+                        g_lang, g_tld = "en", "com.au"
+                    elif "-" in v_target:
+                        prefix = v_target.split("-")[0]
+                        g_lang, g_tld = _GTTS_MAP.get(prefix, ("en", "co.in"))
+                    else:
+                        g_lang, g_tld = _GTTS_MAP.get(norm_l, ("en", "co.in"))
+                    g_tts = gTTS(c, lang=g_lang, tld=g_tld)
                     g_tts.save(g_out)
                     if os.path.exists(g_out) and os.path.getsize(g_out) > 0:
                         audio, _ = VoiceConverter.load_mono(g_out, self.sample_rate)
                         if len(audio) > 0:
+                            # Pitch-shift for male personas (Prabhat, Madhur, Gagan, etc.)
+                            if not is_female:
+                                audio = pitch_shift(audio, self.sample_rate, -4.5)
                             return audio
                 finally:
                     if os.path.exists(g_out):
