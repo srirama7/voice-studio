@@ -62,9 +62,15 @@ class handler(BaseHTTPRequestHandler):
             diag["adapter_error"] = f"{type(e).__name__}: {e}"
 
         from voice_clone import GALLERY_VOICES
+        try:
+            from voice_clone import transform_to_male_voice as _t
+            build_tag = "gtts-fallback-v2"
+        except ImportError:
+            build_tag = "no-gtts-fallback"
         response = {
             "status": "online",
             "service": "Voice Studio Enterprise",
+            "build": build_tag,
             "total_voices": len(GALLERY_VOICES) + 7,
             "supported_formats": [".pdf", ".pptx", ".txt", ".md", ".docx"],
             "diagnostics": diag
