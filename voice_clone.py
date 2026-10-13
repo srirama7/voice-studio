@@ -529,62 +529,7 @@ GALLERY_VOICES: dict[str, dict[str, str]] = {
     "niranjan_gu_m": {"voice": "gu-IN-NiranjanNeural", "gender": "Male", "lang": "gu", "label": "Niranjan — Gujarati, male"},
     "dhwani_gu_f": {"voice": "gu-IN-DhwaniNeural", "gender": "Female", "lang": "gu", "label": "Dhwani — Gujarati, female"},
     "salman_ur_m": {"voice": "ur-IN-SalmanNeural", "gender": "Male", "lang": "ur", "label": "Salman — Urdu, male"},
-    "gul_ur_f": {"voice": "ur-IN-GulNeural", "gender": "Female", "lang": "ur", "label": "Gul — Urdu, female"},
 }
-
-
-def transform_to_male_voice(audio: np.ndarray, sr: int) -> np.ndarray:
-    """Natural, artifact-free masculine voice transformation for cloud fallback.
-
-    Converts female base speech into an authentic, resonant Indian male voice:
-    - Pitch lower by factor 135/205 (~ -7.2 semitones, entering 128-142 Hz male range)
-    - Time-domain SOLA overlap-add preserves exact tempo and cadence without phase smearing
-    - Warm chest resonance band (100 Hz - 320 Hz) adds masculine acoustic depth
-    """
-    if audio is None or len(audio) == 0:
-        return audio
-    try:
-        import scipy.signal
-        f0_in = estimate_f0_autocorr(audio, sr)
-        if f0_in > 150:
-            factor = float(np.clip(132.0 / f0_in, 0.48, 0.72))
-        else:
-            factor = 132.0 / 205.0
-        n_res = int(round(len(audio) / factor))
-        down = scipy.signal.resample(audio, n_res)
-
-        frame_len = int(sr * 0.040)
-        hop_a = int(sr * 0.020)
-        hop_s = int(round(hop_a * factor))
-
-        win = np.hanning(frame_len)
-        n_out = len(audio)
-        out = np.zeros(n_out, dtype=np.float64)
-        norm = np.zeros(n_out, dtype=np.float64)
-
-        pos = 0
-        out_pos = 0
-        while pos + frame_len < len(down) and out_pos + frame_len < n_out:
-            out[out_pos:out_pos + frame_len] += down[pos:pos + frame_len] * win
-            norm[out_pos:out_pos + frame_len] += win
-            pos += hop_a
-            out_pos += hop_s
-
-        mask = norm > 1e-4
-        out[mask] /= norm[mask]
-
-        # Warm chest resonance (100 Hz - 320 Hz)
-        b_low, a_low = scipy.signal.butter(2, [100 / (sr / 2), 320 / (sr / 2)], btype="bandpass")
-        chest = scipy.signal.lfilter(b_low, a_low, out) * 0.35
-        result = out + chest
-
-        max_val = np.max(np.abs(result))
-        if max_val > 1e-4:
-            result = (result / max_val) * 0.95
-        return result.astype(np.float32)
-    except Exception as exc:
-        logger.warning("Male voice transformation skipped (%s).", exc)
-        return audio.astype(np.float32)
 
 
 def apply_human_warmth_dsp(audio: np.ndarray, sr: int, warmth: float = 1.35, brightness: float = 0.88, is_female: bool = False) -> np.ndarray:
@@ -689,13 +634,7 @@ class EdgeTTSAdapter(TTSAdapter):
         for info in GALLERY_VOICES.values():
             if info["voice"] == voice_name:
                 return info["gender"]
-        for m_voice, f_voice in cls.NATIVE_VOICES.values():
-            if voice_name == f_voice:
-                return "Female"
-            if voice_name == m_voice:
-                return "Male"
-        females = ("neerja", "swara", "sapna", "pallavi", "shruti", "sobhana", "aarohi", "tanishaa", "dhwani", "gul", "jenny", "female")
-        if any(f in (voice_name or "").lower() for f in females):
+        if "Jenny" in voice_name or "Neerja" in voice_name or "Swara" in voice_name:
             return "Female"
         return "Male"
 
@@ -872,63 +811,6 @@ class EdgeTTSAdapter(TTSAdapter):
                         except Exception:
                             pass
 
-            # Secondary Cloud Fallback: gTTS (Google Translate Cloud HTTPS TTS)
-            # Seamless fallback when Microsoft EdgeTTS blocks cloud datacenter IP addresses (e.g. Vercel/AWS 403 Forbidden)
-            try:
-                from gtts import gTTS
-                with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as g_tmp:
-                    g_out = g_tmp.name
-                try:
-                    # Map EdgeTTS language codes → gTTS (lang, tld) pairs
-                    # gTTS only accepts 2-letter ISO 639-1 lang codes; tld drives accent
-                    _GTTS_MAP = {
-                        "en-in": ("en", "co.in"),
-                        "en":    ("en", "co.in"),  # default English → Indian accent
-                        "hi":    ("hi", "co.in"),
-                        "kn":    ("kn", "com"),
-                        "ta":    ("ta", "com"),
-                        "te":    ("te", "com"),
-                        "ml":    ("ml", "com"),
-                        "mr":    ("mr", "com"),
-                        "bn":    ("bn", "com"),
-                        "gu":    ("gu", "com"),
-                        "ur":    ("ur", "com"),
-                        "en-us": ("en", "com"),
-                        "en-gb": ("en", "co.uk"),
-                        "en-au": ("en", "com.au"),
-                    }
-                    norm_l = self.norm_language(language)
-                    v_target = (self.forced_voice or v or "").lower()
-                    if "en-in" in v_target:
-                        g_lang, g_tld = "en", "co.in"
-                    elif "en-us" in v_target:
-                        g_lang, g_tld = "en", "com"
-                    elif "en-gb" in v_target:
-                        g_lang, g_tld = "en", "co.uk"
-                    elif "en-au" in v_target:
-                        g_lang, g_tld = "en", "com.au"
-                    elif "-" in v_target:
-                        prefix = v_target.split("-")[0]
-                        g_lang, g_tld = _GTTS_MAP.get(prefix, ("en", "co.in"))
-                    else:
-                        g_lang, g_tld = _GTTS_MAP.get(norm_l, ("en", "co.in"))
-                    g_tts = gTTS(c, lang=g_lang, tld=g_tld)
-                    g_tts.save(g_out)
-                    if os.path.exists(g_out) and os.path.getsize(g_out) > 0:
-                        audio, _ = VoiceConverter.load_mono(g_out, self.sample_rate)
-                        if len(audio) > 0:
-                            if not is_female:
-                                audio = transform_to_male_voice(audio, self.sample_rate)
-                            return audio
-                finally:
-                    if os.path.exists(g_out):
-                        try:
-                            os.unlink(g_out)
-                        except Exception:
-                            pass
-            except Exception as g_exc:
-                logger.warning("gTTS cloud fallback failed: %s", g_exc)
-
             # Acoustic tone fallback (guarantees synthesis NEVER throws NoAudioReceived or crashes)
             t = np.linspace(0, 1.5, int(self.sample_rate * 1.5))
             waveform = 0.1 * np.sin(2 * np.pi * 440 * t) * np.exp(-t)
@@ -958,7 +840,9 @@ class EdgeTTSAdapter(TTSAdapter):
                     segmented.append(pause)
 
             concat_audio = np.concatenate(segmented)
-            return concat_audio.astype(np.float32)
+            # Apply Acoustic Studio Humanization DSP with sweet female tuning
+            is_female = self._voice_gender(v) == "Female"
+            return apply_human_warmth_dsp(concat_audio, self.sample_rate, is_female=is_female)
 
         def _run_sync(v: str) -> np.ndarray:
             def _exec():
