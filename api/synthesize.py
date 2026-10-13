@@ -1,12 +1,20 @@
 from http.server import BaseHTTPRequestHandler
 import json
 import logging
+import os
 import sys
 import io
 import wave
 import urllib.parse
 import re
 from pathlib import Path
+
+#: Cloud safety cap: the serverless function has ~1GB RAM and a hard
+#: execution limit. Long narrations OOM-kill the instance
+#: (FUNCTION_INVOCATION_FAILED). Refuse oversized texts with a clear
+#: message instead of crashing; unlimited length stays available on the
+#: local Studio server.
+SERVERLESS_MAX_CHARS = int(os.getenv("SERVERLESS_MAX_CHARS", "2500"))
 
 root_dir = Path(__file__).resolve().parent.parent
 if str(root_dir) not in sys.path:
@@ -71,6 +79,19 @@ class handler(BaseHTTPRequestHandler):
             self.send_header('Access-Control-Allow-Origin', '*')
             self.end_headers()
             self.wfile.write(b"Text parameter required")
+            return
+
+        if SERVERLESS_MAX_CHARS > 0 and len(text.strip()) > SERVERLESS_MAX_CHARS:
+            self.send_response(400)
+            self.send_header('Content-Type', 'text/plain')
+            self.send_header('Access-Control-Allow-Origin', '*')
+            self.end_headers()
+            self.wfile.write(
+                f"Cloud limit: text is {len(text.strip())} characters "
+                f"(max {SERVERLESS_MAX_CHARS} per cloud request) -- it would "
+                f"exhaust the serverless function memory. Shorten the text, "
+                f"or synthesize long documents on the local Studio "
+                f"(http://127.0.0.1:7860/studio), which has no length limit.".encode('utf-8'))
             return
 
         try:

@@ -909,7 +909,17 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ text: text, voice_id: voiceId, speed: speed })
                 });
-                if (!res.ok) throw new Error(await res.text());
+                if (!res.ok) {
+                    const msg = await res.text();
+                    if (res.status === 400 && /max \d+ per cloud request/.test(msg)) {
+                        throw new Error(msg);
+                    }
+                    if (/FUNCTION_INVOCATION_FAILED|out of .*memory|memory/i.test(msg)) {
+                        throw new Error('Cloud ran out of memory on this long text. ' +
+                            'Shorten it, or use the local Studio (http://127.0.0.1:7860/studio) for unlimited length.');
+                    }
+                    throw new Error(msg || `HTTP ${res.status}`);
+                }
                 const blob = await res.blob();
                 const audioUrl = URL.createObjectURL(blob);
                 player.src = audioUrl;
