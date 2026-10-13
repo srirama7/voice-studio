@@ -12,6 +12,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import tempfile
 from pathlib import Path
 import uuid
 from typing import Dict, List, Optional, Tuple, Union, Any
@@ -174,11 +175,19 @@ def handle_document_generation(
     text_mode: str,
     language: str,
     speech_speed: str = "1.00x (Normal Speed)",
+    direct_script: Optional[str] = None,
     progress=gr.Progress(),
 ) -> Tuple[str, Optional[str], Optional[str], Optional[str], Optional[str], Dict]:
     """Handler for Tab 2: Document Generation & Video Assembly."""
+    temp_txt_file = None
     if not document_file:
-        return "❌ Please upload a presentation document file (.pptx, .pdf, .txt, .md).", None, None, None, None, {}
+        if direct_script and direct_script.strip():
+            temp_txt_file = tempfile.NamedTemporaryFile(suffix=".txt", delete=False, mode="w", encoding="utf-8")
+            temp_txt_file.write(direct_script.strip())
+            temp_txt_file.close()
+            document_file = temp_txt_file.name
+        else:
+            return "❌ Please upload a presentation document file OR paste your narration script text.", None, None, None, None, {}
 
     # Single-dropdown routing: "gallery:<id>" values speak via the stock
     # gallery voice (no enrollment needed); anything else is an enrolled
@@ -244,6 +253,70 @@ def handle_document_generation(
     except Exception as exc:
         logger.error("Document generation error: %s", exc)
         return f"❌ Generation Failed: {exc}", None, None, None, None, {"error": str(exc)}
+    finally:
+        if temp_txt_file and os.path.exists(temp_txt_file.name):
+            try:
+                os.unlink(temp_txt_file.name)
+            except Exception:
+                pass
+
+
+def handle_direct_tts(
+    text: str,
+    voice_id: str,
+    language: str,
+    speech_speed: str = "1.00x (Normal Speed)",
+) -> Tuple[str, Optional[str], Optional[str]]:
+    """Handler for direct Text-to-Speech synthesis from pasted text."""
+    if not text or not text.strip():
+        return "⚠️ Please enter or paste script text to synthesize.", None, None
+
+    speed_val = 1.0
+    if "0.75x" in speech_speed:
+        speed_val = 0.75
+    elif "0.85x" in speech_speed:
+        speed_val = 0.85
+    elif "1.15x" in speech_speed:
+        speed_val = 1.15
+    elif "1.25x" in speech_speed:
+        speed_val = 1.25
+
+    try:
+        from voice_clone import EdgeTTSAdapter, CloningTTSAdapter
+        import soundfile as sf
+        import numpy as np
+
+        waveform = np.zeros(0, dtype=np.float32)
+        sr = 24000
+
+        if voice_id and voice_id.startswith("gallery:"):
+            gid = voice_id.split(":", 1)[1]
+            info = GALLERY_VOICES.get(gid, GALLERY_VOICES.get("prabhat_in_m", {}))
+            voice_name = info.get("voice", "en-IN-PrabhatNeural")
+            rate = info.get("rate", "+0%")
+            pitch = info.get("pitch", "+0Hz")
+            lang = info.get("lang", language or "en")
+            adapter = EdgeTTSAdapter(forced_voice=voice_name, forced_rate=rate, forced_pitch=pitch)
+            waveform, sr = adapter.synthesize(text.strip(), language=lang, speed=speed_val)
+        else:
+            ref_wav = job_engine.resolve_voice_ref(voice_id.strip() if voice_id else "speaker_01")
+            adapter = CloningTTSAdapter()
+            waveform, sr = adapter.synthesize(text.strip(), speaker_wav=ref_wav, language=language or "en", speed=speed_val)
+
+        if len(waveform) == 0:
+            return "❌ Synthesis produced empty audio.", None, None
+
+        rand_id = uuid.uuid4().hex[:8]
+        out_wav = config.paths.outputs_dir / f"direct_speech_{rand_id}.wav"
+        out_wav.parent.mkdir(parents=True, exist_ok=True)
+        sf.write(str(out_wav), waveform, sr)
+
+        dur_sec = len(waveform) / sr
+        status = f"🎉 Synthesized {len(text)} characters ({dur_sec:.1f}s) successfully!"
+        return status, str(out_wav), str(out_wav)
+    except Exception as exc:
+        logger.error("Direct TTS error: %s", exc)
+        return f"❌ Synthesis failed: {exc}", None, None
 
 
 def handle_job_monitor(job_id_search: str) -> Tuple[str, Dict, Optional[str], Optional[str], Optional[str], Optional[str]]:
@@ -405,6 +478,11 @@ def build_app() -> gr.Blocks:
                             label="Upload Presentation Document (.pptx, .pdf, .txt, .md)",
                             file_types=[".pptx", ".pdf", ".txt", ".md"],
                         )
+                        direct_script_input = gr.Textbox(
+                            label="✏️ Or Paste Script / Narration Text Directly",
+                            lines=4,
+                            placeholder="Paste your narration script directly here (no file needed)...",
+                        )
                         
                         with gr.Row():
                             voice_id_select = gr.Dropdown(
@@ -474,9 +552,11 @@ def build_app() -> gr.Blocks:
                             text_size_select = gr.Radio(
                                 choices=["Small (14px)", "Medium (18px)", "Large (22px)", "Extra Large (26px)"],
                                 value="Medium (18px)",
-                                label="🔤 Text Display Size",
+                                label="Preview Text Font Size",
                             )
-                        translate_narration_btn = gr.Button("🌐 Translate Narration Text Now", variant="secondary")
+                        with gr.Row():
+                            translate_narration_btn = gr.Button("🌐 Translate Narration Text Now", variant="secondary")
+                            direct_tts_btn = gr.Button("🔊 Speak This Text Now", variant="primary")
 
                     with gr.Column(scale=1):
                         translated_narration_output = gr.Textbox(
@@ -542,7 +622,7 @@ def build_app() -> gr.Blocks:
 
         generate_button.click(
             fn=handle_document_generation,
-            inputs=[doc_file_input, voice_id_select, text_mode_radio, language_select, speech_speed_radio],
+            inputs=[doc_file_input, voice_id_select, text_mode_radio, language_select, speech_speed_radio, direct_script_input],
             outputs=[
                 gen_status_output,
                 mastered_audio_player,
@@ -551,6 +631,12 @@ def build_app() -> gr.Blocks:
                 srt_file_download,
                 manifest_json_output,
             ],
+        )
+
+        direct_tts_btn.click(
+            fn=handle_direct_tts,
+            inputs=[direct_text_input, voice_id_select, target_i18n_lang, speech_speed_radio],
+            outputs=[gen_status_output, mastered_audio_player, mastered_audio_download],
         )
 
         translate_narration_btn.click(
@@ -587,9 +673,8 @@ def build_app() -> gr.Blocks:
     return demo
 
 
-app = build_app()
-
 if __name__ == "__main__":
+    app = build_app()
     theme = gr.themes.Soft(primary_hue="indigo", secondary_hue="slate")
     # 0.0.0.0 + $PORT: runs on localhost AND on cloud hosts
     # (e.g. Hugging Face Spaces). Local behavior is unchanged.
@@ -598,4 +683,4 @@ if __name__ == "__main__":
     # needed) for sharing straight from this PC. It lasts 72h and works
     # only while this PC stays on.
     share = os.environ.get("SHARE_PUBLIC", "0") == "1"
-    app.launch(server_name="0.0.0.0", server_port=port, share=share, theme=theme)
+    app.launch(server_name="0.0.0.0", server_port=port, share=share, theme=theme, inbrowser=True)

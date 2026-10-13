@@ -887,7 +887,7 @@ class SapiTTSAdapter(TTSAdapter):
         return True  # PowerShell + System.Speech ships with Windows
 
     def synthesize(self, text: str, speaker_wav: Optional[str] = None,
-                   language: str = "en") -> Tuple[np.ndarray, int]:
+                   language: str = "en", speed: float = 1.0, **kwargs) -> Tuple[np.ndarray, int]:
         if EdgeTTSAdapter.norm_language(language) != "en":
             raise RuntimeError(
                 "Offline SAPI fallback supports English only; "

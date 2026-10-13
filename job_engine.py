@@ -212,8 +212,8 @@ class JobEngine:
         return None
 
     def engine_cache_key(self, voice_ref_wav: Optional[str], language: str = "en",
-                           gallery_voice: str = "") -> str:
-        """Cache-busting key: engine name + ref mtime + language.
+                           gallery_voice: str = "", speed: float = 1.0) -> str:
+        """Cache-busting key: engine name + ref mtime + language + speed.
 
         The old key (text|voice_id) reused stale sine-beep chunks even after
         the cloning engine was fixed. Including the engine + ref mtime forces
@@ -229,7 +229,7 @@ class JobEngine:
                 mtime = str(int(Path(voice_ref_wav).stat().st_mtime))
             except Exception:
                 pass
-        return f"{engine}|{mtime}|{language}|{gallery_voice}"
+        return f"{engine}|{mtime}|{language}|{gallery_voice}|{speed}"
 
     def get_job_dir(self, job_id: str) -> Path:
         """Get or create directory for job checkpoints and intermediate artifacts."""
@@ -305,6 +305,7 @@ class JobEngine:
         text_mode: str = "exact",
         language: str = "en-in",
         gallery_voice: str = "",
+        speed: float = 1.0,
     ) -> JobCheckpoint:
         """Initialize a new job checkpoint in QUEUED state."""
         checkpoint = JobCheckpoint(
@@ -313,6 +314,7 @@ class JobEngine:
             voice_id=voice_id,
             text_mode=text_mode,
             language=language,
+            speed=speed,
             gallery_voice=gallery_voice,
             status=JobStatus.QUEUED,
         )
@@ -327,6 +329,7 @@ class JobEngine:
         text_mode: str = "exact",
         language: str = "en-in",
         gallery_voice: str = "",
+        speed: float = 1.0,
         progress_callback: Optional[ProgressCallback] = None,
     ) -> JobManifest:
         """Run or resume a voice studio document processing job.
@@ -339,7 +342,17 @@ class JobEngine:
         if checkpoint is None:
             if not document_path or not voice_id:
                 raise ValueError(f"Job {job_id} does not exist and document_path/voice_id were not supplied.")
-            checkpoint = self.create_job(job_id, document_path, voice_id, text_mode, language, gallery_voice)
+            checkpoint = self.create_job(
+                job_id,
+                document_path,
+                voice_id,
+                text_mode,
+                language,
+                gallery_voice,
+                speed=speed,
+            )
+        elif speed != 1.0 and checkpoint.speed == 1.0:
+            checkpoint.speed = speed
 
         if checkpoint.status == JobStatus.COMPLETED:
             manifest_path = self.get_manifest_path(job_id)
@@ -417,7 +430,7 @@ class JobEngine:
                         checkpoint.voice_id,
                     )
                 engine_key = self.engine_cache_key(voice_ref_wav, checkpoint.language,
-                                                    checkpoint.gallery_voice)
+                                                    checkpoint.gallery_voice, checkpoint.speed)
 
                 # Gallery mode: direct stock voice, NO morph DSP (max naturalness).
                 gallery_adapter = None

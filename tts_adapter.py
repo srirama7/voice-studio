@@ -75,6 +75,8 @@ class TTSAdapter(abc.ABC):
         text: str,
         speaker_wav: Optional[str] = None,
         language: str = "en",
+        speed: float = 1.0,
+        **kwargs,
     ) -> Tuple[np.ndarray, int]:
         """Synthesize text string to audio waveform array.
 
@@ -174,6 +176,8 @@ class CoquiXTTSAdapter(TTSAdapter):
         text: str,
         speaker_wav: Optional[str] = None,
         language: str = "en",
+        speed: float = 1.0,
+        **kwargs,
     ) -> Tuple[np.ndarray, int]:
         """Synthesize text using Coqui XTTS-v2.
 
@@ -241,6 +245,8 @@ class KokoroTTSAdapter(TTSAdapter):
         text: str,
         speaker_wav: Optional[str] = None,
         language: str = "en",
+        speed: float = 1.0,
+        **kwargs,
     ) -> Tuple[np.ndarray, int]:
         """Synthesize text using Kokoro-82M.
 
