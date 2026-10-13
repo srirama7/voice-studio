@@ -544,7 +544,11 @@ def transform_to_male_voice(audio: np.ndarray, sr: int) -> np.ndarray:
         return audio
     try:
         import scipy.signal
-        factor = 135.0 / 205.0
+        f0_in = estimate_f0_autocorr(audio, sr)
+        if f0_in > 150:
+            factor = float(np.clip(132.0 / f0_in, 0.48, 0.72))
+        else:
+            factor = 132.0 / 205.0
         n_res = int(round(len(audio) / factor))
         down = scipy.signal.resample(audio, n_res)
 
