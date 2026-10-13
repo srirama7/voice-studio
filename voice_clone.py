@@ -811,6 +811,30 @@ class EdgeTTSAdapter(TTSAdapter):
                         except Exception:
                             pass
 
+            # Secondary Cloud Fallback: gTTS (Google Translate Cloud HTTPS TTS)
+            # Seamless fallback when Microsoft EdgeTTS blocks cloud datacenter IP addresses (e.g. Vercel/AWS 403 Forbidden)
+            try:
+                from gtts import gTTS
+                with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as g_tmp:
+                    g_out = g_tmp.name
+                try:
+                    norm_l = self.norm_language(language)
+                    tld = "co.in" if norm_l == "en" else "com"
+                    g_tts = gTTS(c, lang=norm_l, tld=tld)
+                    g_tts.save(g_out)
+                    if os.path.exists(g_out) and os.path.getsize(g_out) > 0:
+                        audio, _ = VoiceConverter.load_mono(g_out, self.sample_rate)
+                        if len(audio) > 0:
+                            return audio
+                finally:
+                    if os.path.exists(g_out):
+                        try:
+                            os.unlink(g_out)
+                        except Exception:
+                            pass
+            except Exception as g_exc:
+                logger.warning("gTTS cloud fallback failed: %s", g_exc)
+
             # Acoustic tone fallback (guarantees synthesis NEVER throws NoAudioReceived or crashes)
             t = np.linspace(0, 1.5, int(self.sample_rate * 1.5))
             waveform = 0.1 * np.sin(2 * np.pi * 440 * t) * np.exp(-t)
