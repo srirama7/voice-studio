@@ -20,10 +20,46 @@ root_dir = Path(__file__).resolve().parent.parent
 if str(root_dir) not in sys.path:
     sys.path.insert(0, str(root_dir))
 
-from voice_clone import GALLERY_VOICES, EdgeTTSAdapter, CloningTTSAdapter
+from voice_clone import (
+    GALLERY_VOICES,
+    EdgeTTSAdapter,
+    CloningTTSAdapter,
+    ENROLLED_CLONE_PROFILES,
+    patch_edge_tts_endpoint,
+)
 import numpy as np
 
+# Ensure edge-tts endpoint patch is applied
+patch_edge_tts_endpoint()
+
 logger = logging.getLogger(__name__)
+
+
+def get_voice_defaults(voice_id: str):
+    """Retrieve engine model, rate, pitch, and language for any voice ID."""
+    if voice_id in ENROLLED_CLONE_PROFILES:
+        prof = ENROLLED_CLONE_PROFILES[voice_id]
+        return (
+            prof.get("voice", "en-IN-PrabhatNeural"),
+            prof.get("rate", "+0%"),
+            prof.get("pitch", "+0Hz"),
+            "en-in",
+        )
+    if voice_id.startswith("gallery:"):
+        gid = voice_id.split(":", 1)[1]
+        info = GALLERY_VOICES.get(gid, GALLERY_VOICES.get("prabhat_in_m", {}))
+        return (
+            info.get("voice", "en-IN-PrabhatNeural"),
+            info.get("rate", "+0%"),
+            info.get("pitch", "+0Hz"),
+            info.get("lang", "en"),
+        )
+    if voice_id.startswith("stock:"):
+        v_name = voice_id.split(":", 1)[1]
+        lang = v_name.split("-")[0] if "-" in v_name else "en"
+        return v_name, "+0%", "+0Hz", lang
+    return "en-IN-PrabhatNeural", "+0%", "+0Hz", "en"
+
 
 class handler(BaseHTTPRequestHandler):
     def do_OPTIONS(self):
@@ -32,6 +68,19 @@ class handler(BaseHTTPRequestHandler):
         self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
         self.send_header('Access-Control-Allow-Headers', 'Content-Type')
         self.end_headers()
+
+    def do_GET(self):
+        parsed = urllib.parse.urlparse(self.path)
+        params = urllib.parse.parse_qs(parsed.query)
+        text = params.get('text', [''])[0]
+        voice_id = params.get('voice_id', ['gallery:prabhat_in_m'])[0]
+        speed = 1.0
+        if 'speed' in params:
+            try:
+                speed = float(params.get('speed', ['1.0'])[0])
+            except Exception:
+                pass
+        self._execute_synthesize(text, voice_id, speed)
 
     def do_POST(self):
         content_length = int(self.headers.get('Content-Length', self.headers.get('content-length', 0)))
@@ -73,6 +122,9 @@ class handler(BaseHTTPRequestHandler):
             except Exception:
                 pass
 
+        self._execute_synthesize(text, voice_id, speed)
+
+    def _execute_synthesize(self, text: str, voice_id: str, speed: float = 1.0):
         if not text or not text.strip():
             self.send_response(400)
             self.send_header('Content-Type', 'text/plain')
@@ -99,31 +151,29 @@ class handler(BaseHTTPRequestHandler):
             sr = 24000
 
             if voice_id.startswith("gallery:"):
-                gid = voice_id.split(":", 1)[1]
-                info = GALLERY_VOICES.get(gid, GALLERY_VOICES.get('prabhat_in_m', {}))
-                voice_name = info.get('voice', 'en-IN-PrabhatNeural')
-                rate = info.get('rate', '+0%')
-                pitch = info.get('pitch', '+0Hz')
-                lang = info.get('lang', 'en')
+                voice_name, rate, pitch, lang = get_voice_defaults(voice_id)
                 adapter = EdgeTTSAdapter(
                     forced_voice=voice_name,
                     forced_rate=rate,
-                    forced_pitch=pitch
+                    forced_pitch=pitch,
                 )
                 waveform, sr = adapter.synthesize(text, language=lang, speed=speed)
 
             elif voice_id.startswith("stock:"):
-                v_name = voice_id.split(":", 1)[1]
-                lang_code = "en"
-                if "-" in v_name:
-                    lang_code = v_name.split("-")[0]
-                adapter = EdgeTTSAdapter(forced_voice=v_name)
-                waveform, sr = adapter.synthesize(text, language=lang_code, speed=speed)
+                voice_name, rate, pitch, lang = get_voice_defaults(voice_id)
+                adapter = EdgeTTSAdapter(forced_voice=voice_name)
+                waveform, sr = adapter.synthesize(text, language=lang, speed=speed)
 
             else:
-                # Enrolled clone voice ID (e.g. "amogh", "speaker_01")
+                # Enrolled clone voice ID (e.g. "amogh", "nethuman", "speaker_01", etc.)
                 ref_wav = None
-                for base_dir in [Path(root_dir) / "cache" / "voices" / voice_id, Path(root_dir) / "voices" / voice_id]:
+                # Check api/voices_ref first (guaranteed bundled with api/), then workspace paths
+                search_dirs = [
+                    Path(__file__).resolve().parent / "voices_ref" / voice_id,
+                    Path(root_dir) / "voices" / voice_id,
+                    Path(root_dir) / "cache" / "voices" / voice_id,
+                ]
+                for base_dir in search_dirs:
                     if base_dir.exists():
                         candidates = sorted(base_dir.glob("*/ref.wav"), key=lambda p: p.stat().st_mtime, reverse=True)
                         if candidates:
@@ -138,12 +188,23 @@ class handler(BaseHTTPRequestHandler):
                                 ref_wav = str(wavs[0])
                                 break
 
-                adapter = CloningTTSAdapter()
-                waveform, sr = adapter.synthesize(text, speaker_wav=ref_wav, language="en-in", speed=speed)
+                voice_name, rate, pitch, lang = get_voice_defaults(voice_id)
+                primary_adapter = EdgeTTSAdapter(
+                    forced_voice=voice_name,
+                    forced_rate=rate,
+                    forced_pitch=pitch,
+                )
+
+                if ref_wav and Path(ref_wav).exists():
+                    adapter = CloningTTSAdapter(primary=primary_adapter)
+                    waveform, sr = adapter.synthesize(text, speaker_wav=ref_wav, language=lang, speed=speed)
+                else:
+                    waveform, sr = primary_adapter.synthesize(text, language=lang, speed=speed)
 
             if len(waveform) == 0:
-                adapter = EdgeTTSAdapter(forced_voice="en-IN-PrabhatNeural")
-                waveform, sr = adapter.synthesize(text, language="en", speed=speed)
+                voice_name, rate, pitch, lang = get_voice_defaults(voice_id)
+                adapter = EdgeTTSAdapter(forced_voice=voice_name, forced_rate=rate, forced_pitch=pitch)
+                waveform, sr = adapter.synthesize(text, language=lang, speed=speed)
 
             pcm = np.clip(waveform * 32767.0, -32768, 32767).astype(np.int16)
             out_buffer = io.BytesIO()
@@ -163,8 +224,9 @@ class handler(BaseHTTPRequestHandler):
         except Exception as exc:
             logger.warning("Primary synthesis failed (%s); trying fallback...", exc)
             try:
-                adapter = EdgeTTSAdapter(forced_voice="en-IN-PrabhatNeural")
-                waveform, sr = adapter.synthesize(text, language="en")
+                voice_name, rate, pitch, lang = get_voice_defaults(voice_id)
+                adapter = EdgeTTSAdapter(forced_voice=voice_name, forced_rate=rate, forced_pitch=pitch)
+                waveform, sr = adapter.synthesize(text, language=lang, speed=speed)
                 pcm = np.clip(waveform * 32767.0, -32768, 32767).astype(np.int16)
                 out_buffer = io.BytesIO()
                 with wave.open(out_buffer, "wb") as wf:

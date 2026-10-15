@@ -497,10 +497,68 @@ class VoiceConverter:
 #        Young:  +50 Hz pitch + fast rate  → sounds like an energetic presenter
 #      These offsets shift formants and prosody noticeably.
 #   3. Male pitch targets: -8 Hz to -50 Hz (deep chest voice territory).
-#      Female pitch targets: 0 Hz to +40 Hz (bright head voice territory).
-#   4. Speaking rate differentials: "slow/deep" = -10% to -15%;
-#      "young/bright" = +15% to +20%.  Standard = +0% to +5%.
 # ---------------------------------------------------------------------------
+# Enrolled Clone Voice Profiles (7 Master Profiles from VOICE_STUDIO_39_VOICES_SPEC.md)
+# ---------------------------------------------------------------------------
+ENROLLED_CLONE_PROFILES: dict[str, dict[str, Any]] = {
+    "amogh": {
+        "gender": "Male",
+        "voice": "en-IN-PrabhatNeural",
+        "rate": "+0%",
+        "pitch": "+0Hz",
+        "target_f0": 153.0,
+        "label": "amogh — my clone",
+    },
+    "nethuman": {
+        "gender": "Female",
+        "voice": "en-IN-NeerjaNeural",
+        "rate": "+0%",
+        "pitch": "+0Hz",
+        "target_f0": 218.0,
+        "label": "nethuman — my clone",
+    },
+    "netvoice2": {
+        "gender": "Female",
+        "voice": "en-IN-NeerjaNeural",
+        "rate": "-10%",
+        "pitch": "-15Hz",
+        "target_f0": 185.0,
+        "label": "netvoice2 — my clone",
+    },
+    "speaker_01": {
+        "gender": "Male",
+        "voice": "en-IN-PrabhatNeural",
+        "rate": "+0%",
+        "pitch": "-5Hz",
+        "target_f0": 146.0,
+        "label": "speaker_01 — my clone",
+    },
+    "speaker_demo": {
+        "gender": "Female",
+        "voice": "en-IN-NeerjaNeural",
+        "rate": "+5%",
+        "pitch": "+10Hz",
+        "target_f0": 227.0,
+        "label": "speaker_demo — my clone",
+    },
+    "test_speaker_01": {
+        "gender": "Female",
+        "voice": "en-IN-NeerjaNeural",
+        "rate": "+10%",
+        "pitch": "+20Hz",
+        "target_f0": 236.0,
+        "label": "test_speaker_01 — my clone",
+    },
+    "voice3": {
+        "gender": "Male",
+        "voice": "en-IN-PrabhatNeural",
+        "rate": "-15%",
+        "pitch": "-48Hz",
+        "target_f0": 110.0,
+        "label": "voice3 — my clone",
+    },
+}
+
 GALLERY_VOICES: dict[str, dict[str, str]] = {
     # =========================================================================
     # ENGLISH — Indian Accent  (7 distinct personas: 3 male, 4 female)
@@ -962,6 +1020,8 @@ class EdgeTTSAdapter(TTSAdapter):
 
     @classmethod
     def _voice_gender(cls, voice_name: str) -> str:
+        if voice_name in ENROLLED_CLONE_PROFILES:
+            return ENROLLED_CLONE_PROFILES[voice_name]["gender"]
         for info in GALLERY_VOICES.values():
             if info["voice"] == voice_name:
                 return info["gender"]
@@ -1016,6 +1076,11 @@ class EdgeTTSAdapter(TTSAdapter):
         """Choose male/female base voice closest to the enrolled reference."""
         if self.forced_voice:
             return self.forced_voice
+        if speaker_wav:
+            sw_norm = str(speaker_wav).replace("\\", "/").lower()
+            for vid, prof in ENROLLED_CLONE_PROFILES.items():
+                if f"/{vid}/" in sw_norm or f"_{vid}." in sw_norm or f"{vid}." in sw_norm:
+                    return prof["voice"]
         lang = self.norm_language(language)
         cache_key = f"{speaker_wav}|{lang}"
         male_voice, female_voice = self.NATIVE_VOICES.get(lang, self.NATIVE_VOICES["en"])
