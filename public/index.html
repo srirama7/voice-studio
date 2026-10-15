@@ -844,19 +844,24 @@
         }
         loadVoices();
 
+        let userManuallyChangedVoice = false;
+        document.getElementById('voiceSelect')?.addEventListener('change', () => {
+            userManuallyChangedVoice = true;
+        });
+
         function detectLanguageAndSelectVoice(text) {
             const select = document.getElementById('voiceSelect');
             const badge = document.getElementById('langBadge');
 
             let detectedLang = "Indian English";
-            let targetVoice = "gallery:neerja_soft_in_f"; // Sweet Indian English Female
+            let targetVoice = null;
 
             if (/[\u0C80-\u0CFF]/.test(text)) {
                 detectedLang = "Kannada (ಕನ್ನಡ)";
-                targetVoice = "gallery:sapna_soft_kn_f"; // Sweet Kannada Female
+                targetVoice = "gallery:sapna_soft_kn_f";
             } else if (/[\u0900-\u097F]/.test(text)) {
                 detectedLang = "Hindi (हिंदी)";
-                targetVoice = "gallery:swara_soft_hi_f"; // Sweet Hindi Female
+                targetVoice = "gallery:swara_soft_hi_f";
             } else if (/[\u0B80-\u0BFF]/.test(text)) {
                 detectedLang = "Tamil (தமிழ்)";
                 targetVoice = "gallery:pallavi_ta_f";
@@ -877,13 +882,18 @@
                 targetVoice = "gallery:tanishaa_bn_f";
             }
 
-            badge.textContent = "🌐 " + detectedLang;
-            badge.style.display = "inline-block";
+            if (badge) {
+                badge.textContent = "🌐 " + detectedLang;
+                badge.style.display = "inline-block";
+            }
 
-            for (let i = 0; i < select.options.length; i++) {
-                if (select.options[i].value === targetVoice) {
-                    select.selectedIndex = i;
-                    break;
+            // Only auto-switch if a specific non-English regional script is detected and user hasn't manually selected a voice
+            if (targetVoice && !userManuallyChangedVoice) {
+                for (let i = 0; i < select.options.length; i++) {
+                    if (select.options[i].value === targetVoice) {
+                        select.selectedIndex = i;
+                        break;
+                    }
                 }
             }
         }

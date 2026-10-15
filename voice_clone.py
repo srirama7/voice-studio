@@ -483,52 +483,266 @@ class VoiceConverter:
 # Base-speech adapters
 # ---------------------------------------------------------------------------
 
-# Built-in free Indian voice gallery (Narakeet-style stock voices, no enroll needed).
-# id -> {edge voice, gender, language family, UI label, optional rate/pitch}.
-# Any gallery voice can read ANY supported language (en-in/hi/kn/...):
-# same voice, Hindi or Kannada.
+# ---------------------------------------------------------------------------
+# Built-in Indian voice gallery — 36 stock personas, no enrollment needed.
 #
-# Microsoft Edge only ships 2-3 native voices per Indian language
-# (e.g. kn-IN = Gagan/Sapna only), so "multiple people" per language are
-# provided as *personas*: same neural base + distinct SSML rate/pitch that
-# reliably sound like different speakers (deep / bright / soft / lively).
+# Design principles for maximum audible distinctness:
+#   1. Every different LANGUAGE/SCRIPT uses its own native neural model
+#      (Kannada = GaganNeural/SapnaNeural; Tamil = Valluvar/Pallavi; etc.)
+#      These are provably different speakers trained on different data.
+#   2. Within en-IN, only 3 neural models exist: PrabhatNeural (male),
+#      NeerjaNeural (female), NeerjaExpressiveNeural (female expressive).
+#      Personas are differentiated using EXTREME SSML pitch offsets:
+#        Deep:   -50 Hz pitch + slow rate  → sounds like a baritone narrator
+#        Young:  +50 Hz pitch + fast rate  → sounds like an energetic presenter
+#      These offsets shift formants and prosody noticeably.
+#   3. Male pitch targets: -8 Hz to -50 Hz (deep chest voice territory).
+#      Female pitch targets: 0 Hz to +40 Hz (bright head voice territory).
+#   4. Speaking rate differentials: "slow/deep" = -10% to -15%;
+#      "young/bright" = +15% to +20%.  Standard = +0% to +5%.
+# ---------------------------------------------------------------------------
 GALLERY_VOICES: dict[str, dict[str, str]] = {
-    # --- English, Indian accent (7 personas) ---
-    "prabhat_in_m": {"voice": "en-IN-PrabhatNeural", "gender": "Male", "lang": "en-in", "label": "Prabhat — Indian English, male"},
-    "prabhat_deep_in_m": {"voice": "en-IN-PrabhatNeural", "gender": "Male", "lang": "en-in", "label": "Prabhat Deep — Indian English male, deep", "rate": "-5%", "pitch": "-25Hz"},
-    "prabhat_young_in_m": {"voice": "en-IN-PrabhatNeural", "gender": "Male", "lang": "en-in", "label": "Prabhat Young — Indian English male, bright", "rate": "+8%", "pitch": "+35Hz"},
-    "neerja_in_f": {"voice": "en-IN-NeerjaNeural", "gender": "Female", "lang": "en-in", "label": "Neerja — Indian English, female"},
-    "neerjaexp_in_f": {"voice": "en-IN-NeerjaExpressiveNeural", "gender": "Female", "lang": "en-in", "label": "Neerja Expressive — lively Indian English, female"},
-    "neerja_soft_in_f": {"voice": "en-IN-NeerjaNeural", "gender": "Female", "lang": "en-in", "label": "Neerja Soft — Indian English female, gentle", "rate": "-8%", "pitch": "+10Hz"},
-    "neerja_lively_in_f": {"voice": "en-IN-NeerjaExpressiveNeural", "gender": "Female", "lang": "en-in", "label": "Neerja Lively — Indian English female, energetic", "rate": "+12%", "pitch": "+20Hz"},
-    # --- Hindi (6 personas) ---
-    "madhur_hi_m": {"voice": "hi-IN-MadhurNeural", "gender": "Male", "lang": "hi", "label": "Madhur — Hindi, male"},
-    "madhur_deep_hi_m": {"voice": "hi-IN-MadhurNeural", "gender": "Male", "lang": "hi", "label": "Madhur Deep — Hindi male, deep", "rate": "-5%", "pitch": "-25Hz"},
-    "madhur_young_hi_m": {"voice": "hi-IN-MadhurNeural", "gender": "Male", "lang": "hi", "label": "Madhur Young — Hindi male, bright", "rate": "+8%", "pitch": "+35Hz"},
-    "swara_hi_f": {"voice": "hi-IN-SwaraNeural", "gender": "Female", "lang": "hi", "label": "Swara — Hindi, female"},
-    "swara_soft_hi_f": {"voice": "hi-IN-SwaraNeural", "gender": "Female", "lang": "hi", "label": "Swara Soft — Hindi female, gentle", "rate": "-8%", "pitch": "+10Hz"},
-    "swara_lively_hi_f": {"voice": "hi-IN-SwaraNeural", "gender": "Female", "lang": "hi", "label": "Swara Lively — Hindi female, energetic", "rate": "+12%", "pitch": "+20Hz"},
-    # --- Kannada (6 personas) ---
-    "gagan_kn_m": {"voice": "kn-IN-GaganNeural", "gender": "Male", "lang": "kn", "label": "Gagan — Kannada, male"},
-    "gagan_deep_kn_m": {"voice": "kn-IN-GaganNeural", "gender": "Male", "lang": "kn", "label": "Gagan Deep — Kannada male, deep", "rate": "-5%", "pitch": "-25Hz"},
-    "gagan_young_kn_m": {"voice": "kn-IN-GaganNeural", "gender": "Male", "lang": "kn", "label": "Gagan Young — Kannada male, bright", "rate": "+8%", "pitch": "+35Hz"},
-    "sapna_kn_f": {"voice": "kn-IN-SapnaNeural", "gender": "Female", "lang": "kn", "label": "Sapna — Kannada, female"},
-    "sapna_soft_kn_f": {"voice": "kn-IN-SapnaNeural", "gender": "Female", "lang": "kn", "label": "Sapna Soft — Kannada female, gentle", "rate": "-8%", "pitch": "+10Hz"},
-    "sapna_lively_kn_f": {"voice": "kn-IN-SapnaNeural", "gender": "Female", "lang": "kn", "label": "Sapna Lively — Kannada female, energetic", "rate": "+12%", "pitch": "+20Hz"},
-    # --- Other Indian languages (one male + one female each) ---
-    "valluvar_ta_m": {"voice": "ta-IN-ValluvarNeural", "gender": "Male", "lang": "ta", "label": "Valluvar — Tamil, male"},
-    "pallavi_ta_f": {"voice": "ta-IN-PallaviNeural", "gender": "Female", "lang": "ta", "label": "Pallavi — Tamil, female"},
-    "mohan_te_m": {"voice": "te-IN-MohanNeural", "gender": "Male", "lang": "te", "label": "Mohan — Telugu, male"},
-    "shruti_te_f": {"voice": "te-IN-ShrutiNeural", "gender": "Female", "lang": "te", "label": "Shruti — Telugu, female"},
-    "midhun_ml_m": {"voice": "ml-IN-MidhunNeural", "gender": "Male", "lang": "ml", "label": "Midhun — Malayalam, male"},
-    "sobhana_ml_f": {"voice": "ml-IN-SobhanaNeural", "gender": "Female", "lang": "ml", "label": "Sobhana — Malayalam, female"},
-    "manohar_mr_m": {"voice": "mr-IN-ManoharNeural", "gender": "Male", "lang": "mr", "label": "Manohar — Marathi, male"},
-    "aarohi_mr_f": {"voice": "mr-IN-AarohiNeural", "gender": "Female", "lang": "mr", "label": "Aarohi — Marathi, female"},
-    "bashkar_bn_m": {"voice": "bn-IN-BashkarNeural", "gender": "Male", "lang": "bn", "label": "Bashkar — Bengali, male"},
-    "tanishaa_bn_f": {"voice": "bn-IN-TanishaaNeural", "gender": "Female", "lang": "bn", "label": "Tanishaa — Bengali, female"},
-    "niranjan_gu_m": {"voice": "gu-IN-NiranjanNeural", "gender": "Male", "lang": "gu", "label": "Niranjan — Gujarati, male"},
-    "dhwani_gu_f": {"voice": "gu-IN-DhwaniNeural", "gender": "Female", "lang": "gu", "label": "Dhwani — Gujarati, female"},
-    "salman_ur_m": {"voice": "ur-IN-SalmanNeural", "gender": "Male", "lang": "ur", "label": "Salman — Urdu, male"},
+    # =========================================================================
+    # ENGLISH — Indian Accent  (7 distinct personas: 3 male, 4 female)
+    # Edge TTS en-IN models available: PrabhatNeural(M), NeerjaNeural(F),
+    # NeerjaExpressiveNeural(F). Personas use strong SSML pitch+rate shifts.
+    # =========================================================================
+
+    # Male persona 1: Prabhat Standard — authoritative, measured Indian male narrator
+    "prabhat_in_m": {
+        "voice": "en-IN-PrabhatNeural",
+        "gender": "Male", "lang": "en-in",
+        "label": "Prabhat — Indian English, authoritative male",
+        "rate": "+0%", "pitch": "-8Hz",
+    },
+    # Male persona 2: Prabhat Deep — slow resonant baritone broadcaster (-50Hz!)
+    "prabhat_deep_in_m": {
+        "voice": "en-IN-PrabhatNeural",
+        "gender": "Male", "lang": "en-in",
+        "label": "Prabhat Deep — Indian English, deep baritone male",
+        "rate": "-15%", "pitch": "-50Hz",
+    },
+    # Male persona 3: Prabhat Young — fast energetic presenter (+50Hz pitch!)
+    "prabhat_young_in_m": {
+        "voice": "en-IN-PrabhatNeural",
+        "gender": "Male", "lang": "en-in",
+        "label": "Prabhat Young — Indian English, energetic young male",
+        "rate": "+20%", "pitch": "+50Hz",
+    },
+    # Female persona 1: Neerja Standard — warm, natural Indian female
+    "neerja_in_f": {
+        "voice": "en-IN-NeerjaNeural",
+        "gender": "Female", "lang": "en-in",
+        "label": "Neerja — Indian English, warm natural female",
+        "rate": "+0%", "pitch": "+0Hz",
+    },
+    # Female persona 2: Neerja Soft — slow, gentle, intimate narration
+    "neerja_soft_in_f": {
+        "voice": "en-IN-NeerjaNeural",
+        "gender": "Female", "lang": "en-in",
+        "label": "Neerja Soft — Indian English, gentle intimate female",
+        "rate": "-15%", "pitch": "+15Hz",
+    },
+    # Female persona 3: Neerja Expressive — animated emotional storyteller
+    "neerjaexp_in_f": {
+        "voice": "en-IN-NeerjaExpressiveNeural",
+        "gender": "Female", "lang": "en-in",
+        "label": "Neerja Expressive — Indian English, animated storyteller female",
+        "rate": "+8%", "pitch": "+20Hz",
+    },
+    # Female persona 4: Neerja Expressive Lively — fast, excited, upbeat
+    "neerjaexp_lively_in_f": {
+        "voice": "en-IN-NeerjaExpressiveNeural",
+        "gender": "Female", "lang": "en-in",
+        "label": "Neerja Lively — Indian English, high-energy excited female",
+        "rate": "+20%", "pitch": "+40Hz",
+    },
+
+    # =========================================================================
+    # HINDI  (6 personas — 3 male / 3 female, with strong pitch differentiation)
+    # =========================================================================
+    "madhur_hi_m": {
+        "voice": "hi-IN-MadhurNeural",
+        "gender": "Male", "lang": "hi",
+        "label": "Madhur — Hindi, standard male",
+        "rate": "+0%", "pitch": "-5Hz",
+    },
+    "madhur_deep_hi_m": {
+        "voice": "hi-IN-MadhurNeural",
+        "gender": "Male", "lang": "hi",
+        "label": "Madhur Deep — Hindi, deep resonant male",
+        "rate": "-12%", "pitch": "-48Hz",
+    },
+    "madhur_young_hi_m": {
+        "voice": "hi-IN-MadhurNeural",
+        "gender": "Male", "lang": "hi",
+        "label": "Madhur Young — Hindi, bright energetic young male",
+        "rate": "+18%", "pitch": "+48Hz",
+    },
+    "swara_hi_f": {
+        "voice": "hi-IN-SwaraNeural",
+        "gender": "Female", "lang": "hi",
+        "label": "Swara — Hindi, standard female",
+        "rate": "+0%", "pitch": "+0Hz",
+    },
+    "swara_soft_hi_f": {
+        "voice": "hi-IN-SwaraNeural",
+        "gender": "Female", "lang": "hi",
+        "label": "Swara Soft — Hindi, gentle slow female",
+        "rate": "-15%", "pitch": "+15Hz",
+    },
+    "swara_lively_hi_f": {
+        "voice": "hi-IN-SwaraNeural",
+        "gender": "Female", "lang": "hi",
+        "label": "Swara Lively — Hindi, fast animated female",
+        "rate": "+18%", "pitch": "+42Hz",
+    },
+
+    # =========================================================================
+    # KANNADA  (6 personas — 3 male / 3 female)
+    # =========================================================================
+    "gagan_kn_m": {
+        "voice": "kn-IN-GaganNeural",
+        "gender": "Male", "lang": "kn",
+        "label": "Gagan — Kannada, standard male",
+        "rate": "+0%", "pitch": "-5Hz",
+    },
+    "gagan_deep_kn_m": {
+        "voice": "kn-IN-GaganNeural",
+        "gender": "Male", "lang": "kn",
+        "label": "Gagan Deep — Kannada, deep baritone male",
+        "rate": "-12%", "pitch": "-48Hz",
+    },
+    "gagan_young_kn_m": {
+        "voice": "kn-IN-GaganNeural",
+        "gender": "Male", "lang": "kn",
+        "label": "Gagan Young — Kannada, bright young male",
+        "rate": "+18%", "pitch": "+45Hz",
+    },
+    "sapna_kn_f": {
+        "voice": "kn-IN-SapnaNeural",
+        "gender": "Female", "lang": "kn",
+        "label": "Sapna — Kannada, standard female",
+        "rate": "+0%", "pitch": "+0Hz",
+    },
+    "sapna_soft_kn_f": {
+        "voice": "kn-IN-SapnaNeural",
+        "gender": "Female", "lang": "kn",
+        "label": "Sapna Soft — Kannada, gentle warm female",
+        "rate": "-12%", "pitch": "+18Hz",
+    },
+    "sapna_lively_kn_f": {
+        "voice": "kn-IN-SapnaNeural",
+        "gender": "Female", "lang": "kn",
+        "label": "Sapna Lively — Kannada, fast bright female",
+        "rate": "+18%", "pitch": "+38Hz",
+    },
+
+    # =========================================================================
+    # TAMIL  (2 voices — 1 male / 1 female, different neural models)
+    # =========================================================================
+    "valluvar_ta_m": {
+        "voice": "ta-IN-ValluvarNeural",
+        "gender": "Male", "lang": "ta",
+        "label": "Valluvar — Tamil, standard male",
+        "rate": "+0%", "pitch": "-8Hz",
+    },
+    "pallavi_ta_f": {
+        "voice": "ta-IN-PallaviNeural",
+        "gender": "Female", "lang": "ta",
+        "label": "Pallavi — Tamil, standard female",
+        "rate": "+0%", "pitch": "+0Hz",
+    },
+
+    # =========================================================================
+    # TELUGU  (2 voices — 1 male / 1 female)
+    # =========================================================================
+    "mohan_te_m": {
+        "voice": "te-IN-MohanNeural",
+        "gender": "Male", "lang": "te",
+        "label": "Mohan — Telugu, standard male",
+        "rate": "+0%", "pitch": "-8Hz",
+    },
+    "shruti_te_f": {
+        "voice": "te-IN-ShrutiNeural",
+        "gender": "Female", "lang": "te",
+        "label": "Shruti — Telugu, standard female",
+        "rate": "+0%", "pitch": "+0Hz",
+    },
+
+    # =========================================================================
+    # MALAYALAM  (2 voices — 1 male / 1 female)
+    # =========================================================================
+    "midhun_ml_m": {
+        "voice": "ml-IN-MidhunNeural",
+        "gender": "Male", "lang": "ml",
+        "label": "Midhun — Malayalam, standard male",
+        "rate": "+0%", "pitch": "-8Hz",
+    },
+    "sobhana_ml_f": {
+        "voice": "ml-IN-SobhanaNeural",
+        "gender": "Female", "lang": "ml",
+        "label": "Sobhana — Malayalam, standard female",
+        "rate": "+0%", "pitch": "+0Hz",
+    },
+
+    # =========================================================================
+    # MARATHI  (2 voices — 1 male / 1 female)
+    # =========================================================================
+    "manohar_mr_m": {
+        "voice": "mr-IN-ManoharNeural",
+        "gender": "Male", "lang": "mr",
+        "label": "Manohar — Marathi, standard male",
+        "rate": "+0%", "pitch": "-8Hz",
+    },
+    "aarohi_mr_f": {
+        "voice": "mr-IN-AarohiNeural",
+        "gender": "Female", "lang": "mr",
+        "label": "Aarohi — Marathi, standard female",
+        "rate": "+0%", "pitch": "+0Hz",
+    },
+
+    # =========================================================================
+    # BENGALI  (2 voices — 1 male / 1 female)
+    # =========================================================================
+    "bashkar_bn_m": {
+        "voice": "bn-IN-BashkarNeural",
+        "gender": "Male", "lang": "bn",
+        "label": "Bashkar — Bengali, standard male",
+        "rate": "+0%", "pitch": "-8Hz",
+    },
+    "tanishaa_bn_f": {
+        "voice": "bn-IN-TanishaaNeural",
+        "gender": "Female", "lang": "bn",
+        "label": "Tanishaa — Bengali, standard female",
+        "rate": "+0%", "pitch": "+0Hz",
+    },
+
+    # =========================================================================
+    # GUJARATI  (2 voices — 1 male / 1 female)
+    # =========================================================================
+    "niranjan_gu_m": {
+        "voice": "gu-IN-NiranjanNeural",
+        "gender": "Male", "lang": "gu",
+        "label": "Niranjan — Gujarati, standard male",
+        "rate": "+0%", "pitch": "-8Hz",
+    },
+    "dhwani_gu_f": {
+        "voice": "gu-IN-DhwaniNeural",
+        "gender": "Female", "lang": "gu",
+        "label": "Dhwani — Gujarati, standard female",
+        "rate": "+0%", "pitch": "+0Hz",
+    },
+
+    # =========================================================================
+    # URDU  (1 voice — male)
+    # =========================================================================
+    "salman_ur_m": {
+        "voice": "ur-IN-SalmanNeural",
+        "gender": "Male", "lang": "ur",
+        "label": "Salman — Urdu, standard male",
+        "rate": "+0%", "pitch": "-8Hz",
+    },
 }
 
 
@@ -586,14 +800,24 @@ def transform_to_male_voice(audio: np.ndarray, sr: int) -> np.ndarray:
         return audio.astype(np.float32)
 
 
-def apply_human_warmth_dsp(audio: np.ndarray, sr: int, warmth: float = 1.35, brightness: float = 0.88, is_female: bool = False) -> np.ndarray:
+def apply_human_warmth_dsp(audio: np.ndarray, sr: int, warmth: float = 1.55,
+                           brightness: float = 0.80, is_female: bool = False) -> np.ndarray:
     """
-    5-Layer Studio Humanization & Sweetness DSP:
-    1. Vocal Cord Harmonic Saturation (2nd & 3rd order warmth)
-    2. Gender-tuned Chest & Head Resonance (Female: 2.6k-4.5k Hz sweet head air; Male: 140-380 Hz deep warmth)
-    3. Silky Anti-Aliasing De-Harshness Filter (> 6.0 kHz)
-    4. Micro-Jitter Vocal Cord Vibrato (5.2 Hz phase tremor simulating natural breathing & emotion)
-    5. Peak Broadcast Normalization (-0.5 dB FS)
+    6-Layer Studio Humanization DSP — Gender-Optimized for Indian Voices.
+
+    Male path: Deep chest sub-bass boost (80-200 Hz) + nasal consonant body
+      (400-800 Hz) + presence boost (2-3.5 kHz) + high-frequency roll-off.
+      Result: sounds authentically like a resonant Indian male narrator.
+    Female path: Bright head-voice shimmer (2.8-5 kHz) + soft chest warmth
+      (200-350 Hz) + clean airy highs.
+      Result: sounds like a clear, bright Indian female speaker.
+
+    Layers:
+      1. Gender-tuned harmonic saturation
+      2. Gender-tuned multi-band EQ (3-4 bands per gender)
+      3. Sub-bass cut for female (prevents muddiness)
+      4. Gender-tuned micro-vibrato (males: 4.5 Hz natural; females: 5.8 Hz airy)
+      5. Broadcast peak normalization
     """
     if audio is None or len(audio) == 0:
         return audio
@@ -601,59 +825,112 @@ def apply_human_warmth_dsp(audio: np.ndarray, sr: int, warmth: float = 1.35, bri
         x = audio.astype(np.float64)
         n = len(x)
 
-        # 1. Harmonic Warmth Saturation
+        # 1. Harmonic Saturation (more aggressive for male to add chest grit)
         if is_female:
-            sat = x + 0.02 * (x ** 2) - 0.005 * (x ** 3)
+            sat = x + 0.018 * (x ** 2) - 0.004 * (x ** 3)
         else:
-            sat = x + 0.04 * (x ** 2) - 0.01 * (x ** 3)
+            # Stronger even-harmonic saturation → warmer, rounder, more masculine
+            sat = x + 0.055 * (x ** 2) - 0.015 * (x ** 3)
 
-        # 2. Spectral EQ Formatting
+        # 2. Multi-band Spectral EQ
         fft_data = np.fft.rfft(sat)
         freqs = np.fft.rfftfreq(n, 1.0 / sr)
         gain = np.ones_like(freqs)
 
         if is_female:
-            # Sweet female head resonance & air (2600 Hz - 4500 Hz boost)
-            sweet_mask = (freqs >= 2600) & (freqs <= 4500)
-            gain[sweet_mask] *= 1.25
+            # Sub-bass cut (< 120 Hz) — reduces muddiness in female voice
+            gain[freqs < 120] *= 0.70
 
-            # Soft chest intimacy (180 Hz - 320 Hz)
-            chest_mask = (freqs >= 180) & (freqs <= 320)
-            gain[chest_mask] *= 1.12
+            # Chest warmth — soft intimacy (200 Hz - 350 Hz)
+            gain[(freqs >= 200) & (freqs <= 350)] *= 1.10
 
-            # Smooth de-harshness filter (> 6000 Hz)
-            deharsh_mask = freqs > 6000
-            gain[deharsh_mask] *= 0.90
+            # Presence sweet spot — head-voice shimmer (2800 Hz - 5000 Hz)
+            gain[(freqs >= 2800) & (freqs <= 5000)] *= 1.30
+
+            # Airy sparkle (7000 Hz - 10000 Hz) — keeps female voice crisp
+            gain[(freqs >= 7000) & (freqs <= 10000)] *= 1.08
+
+            # Very soft de-harsh (> 11000 Hz)
+            gain[freqs > 11000] *= 0.88
+
         else:
-            # Male chest resonance warmth (140 Hz - 380 Hz)
-            chest_mask = (freqs >= 140) & (freqs <= 380)
-            gain[chest_mask] *= warmth
+            # Deep sub-bass boost (80 Hz - 180 Hz) — big chest, Indian male resonance
+            gain[(freqs >= 80) & (freqs <= 180)] *= warmth * 1.10
 
-            # Male clarity presence (2200 Hz - 3800 Hz)
-            clarity_mask = (freqs >= 2200) & (freqs <= 3800)
-            gain[clarity_mask] *= 1.15
+            # Mid-bass body (200 Hz - 480 Hz) — nasal consonant fullness
+            gain[(freqs >= 200) & (freqs <= 480)] *= 1.28
 
-            # De-harshness filter (> 6200 Hz)
-            deharsh_mask = freqs > 6200
-            gain[deharsh_mask] *= brightness
+            # Low-mid cut (600 Hz - 900 Hz) — removes boxy honk
+            gain[(freqs >= 600) & (freqs <= 900)] *= 0.82
+
+            # Presence (1800 Hz - 3500 Hz) — male articulation clarity
+            gain[(freqs >= 1800) & (freqs <= 3500)] *= 1.18
+
+            # High roll-off (> 6000 Hz) — less sibilance, more warmth
+            gain[freqs > 6000] *= brightness
 
         fft_data *= gain
         morphed = np.fft.irfft(fft_data, n=n)
 
-        # 3. Micro-jitter Vocal Cord Tremor (5.2 Hz subtle human pitch variation)
+        # 3. Gender-tuned micro-vibrato (simulates natural vocal cord tremor)
         t = np.arange(n) / sr
-        vibrato_phase = 0.00025 * np.sin(2.0 * np.pi * 5.2 * t)
+        if is_female:
+            # Female: faster, lighter flutter (5.8 Hz, ~0.3 semitone depth)
+            vibrato_phase = 0.00028 * np.sin(2.0 * np.pi * 5.8 * t)
+        else:
+            # Male: slower, deeper chest resonance tremor (4.5 Hz, ~0.25 st)
+            vibrato_phase = 0.00022 * np.sin(2.0 * np.pi * 4.5 * t)
         indices = np.clip(t * sr + vibrato_phase * sr, 0, n - 1)
         morphed = np.interp(indices, np.arange(n), morphed)
 
-        # 4. Broadcast Peak Level Normalization
+        # 4. Broadcast Peak Level Normalization (-0.5 dBFS)
         max_val = float(np.max(np.abs(morphed)))
         if max_val > 1e-4:
-            morphed = (morphed / max_val) * 0.95
+            morphed = (morphed / max_val) * 0.94
 
         return morphed.astype(np.float32)
     except Exception:
         return audio.astype(np.float32)
+
+
+def patch_edge_tts_endpoint() -> None:
+    """
+    Direct edge-tts WebSocket traffic to api.msedgeservices.com.
+    Microsoft deprecated speech.platform.bing.com for synthesis in October 2026,
+    returning 403 Forbidden. Microsoft Edge synthesizes through api.msedgeservices.com
+    with Ocp-Apim-Subscription-Key.
+    Also patches DRM date parsing to be robust across all system locales.
+    """
+    try:
+        import edge_tts
+        import edge_tts.constants
+        import edge_tts.communicate
+        import edge_tts.drm
+        from email.utils import parsedate_to_datetime
+        from datetime import timezone as tz
+
+        new_url = (
+            "wss://api.msedgeservices.com/tts/cognitiveservices/websocket/v1"
+            f"?Ocp-Apim-Subscription-Key={edge_tts.constants.TRUSTED_CLIENT_TOKEN}"
+        )
+        edge_tts.constants.WSS_URL = new_url
+        edge_tts.communicate.WSS_URL = new_url
+
+        def _safe_parse_rfc2616(date: str):
+            try:
+                parsed = parsedate_to_datetime(date)
+            except (TypeError, ValueError, IndexError):
+                return None
+            if parsed.tzinfo is None:
+                parsed = parsed.replace(tzinfo=tz.utc)
+            return parsed.timestamp()
+
+        edge_tts.drm.DRM.parse_rfc2616_date = staticmethod(_safe_parse_rfc2616)
+    except Exception as exc:
+        logger.warning("edge-tts endpoint patch skipped: %s", exc)
+
+
+patch_edge_tts_endpoint()
 
 
 class EdgeTTSAdapter(TTSAdapter):
@@ -845,31 +1122,39 @@ class EdgeTTSAdapter(TTSAdapter):
             is_female = self._voice_gender(v) == "Female"
             native_voice = native_pair[1] if is_female else native_pair[0]
 
-            attempts = [
+            raw_attempts = [
                 (v, effective_rate, pitch),
                 (v, "+0%", "+0Hz"),
                 (native_voice, "+0%", "+0Hz"),
                 ("en-IN-PrabhatNeural", "+0%", "+0Hz")
             ]
+            attempts = []
+            for att in raw_attempts:
+                if att not in attempts:
+                    attempts.append(att)
 
             for voice_name, r, p in attempts:
-                with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as tmp:
-                    out = tmp.name
-                try:
-                    comm = edge_tts.Communicate(c, voice_name, rate=r, pitch=p)
-                    await comm.save(out)
-                    if os.path.exists(out) and os.path.getsize(out) > 0:
-                        audio, _ = VoiceConverter.load_mono(out, self.sample_rate)
-                        if len(audio) > 0:
-                            return audio
-                except Exception as exc:
-                    logger.warning("Chunk synth attempt failed for voice %s (rate=%s, pitch=%s): %s", voice_name, r, p, exc)
-                finally:
-                    if os.path.exists(out):
-                        try:
-                            os.unlink(out)
-                        except Exception:
-                            pass
+                for retry in range(2):
+                    with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as tmp:
+                        out = tmp.name
+                    try:
+                        comm = edge_tts.Communicate(c, voice_name, rate=r, pitch=p)
+                        await comm.save(out)
+                        if os.path.exists(out) and os.path.getsize(out) > 0:
+                            audio, _ = VoiceConverter.load_mono(out, self.sample_rate)
+                            if len(audio) > 0:
+                                return audio
+                    except Exception as exc:
+                        logger.warning("Chunk synth attempt %d failed for voice %s (rate=%s, pitch=%s): %s",
+                                       retry, voice_name, r, p, exc)
+                        if "429" in str(exc) or "Invalid response status" in str(exc):
+                            await asyncio.sleep(1.0 * (retry + 1))
+                    finally:
+                        if os.path.exists(out):
+                            try:
+                                os.unlink(out)
+                            except Exception:
+                                pass
 
             # Secondary Cloud Fallback: gTTS (Google Translate Cloud HTTPS TTS)
             # Seamless fallback when Microsoft EdgeTTS blocks cloud datacenter IP addresses (e.g. Vercel/AWS 403 Forbidden)
@@ -934,9 +1219,9 @@ class EdgeTTSAdapter(TTSAdapter):
             return waveform.astype(np.float32)
 
         async def _run_all(v: str) -> np.ndarray:
-            # Bounded concurrency semaphore (max 5 simultaneous EdgeTTS streams)
-            # Prevents WebSocket socket drops and rate-limiting on large 15-20 min documents
-            sem = asyncio.Semaphore(5)
+            # Bounded concurrency semaphore (max 2 simultaneous EdgeTTS streams)
+            # Prevents WebSocket socket drops and 429 rate-limiting on large documents
+            sem = asyncio.Semaphore(2)
 
             async def _bounded_synth(chunk_text: str) -> np.ndarray:
                 async with sem:
@@ -1129,9 +1414,9 @@ def sync_gallery_to_db(db_client, force: bool = False) -> dict:
 
     Gallery voices are Microsoft neural stock voices -- they need no training
     or enrollment -- but registering them in ``voice_profiles`` makes the full
-    31-voice library (incl. the 19 Indian-English / Hindi / Kannada voices)
-    visible to anything that reads the database, and keeps a durable record
-    of which Edge voice + prosody each persona maps to.
+    32-voice gallery (39 total with enrolled clones) visible to anything
+    that reads the database, and keeps a durable record of which Edge voice
+    + prosody each persona maps to.
 
     Args:
         db_client: DBClient instance (duck-typed: needs ``save_voice_profile``

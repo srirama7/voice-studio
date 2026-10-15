@@ -8,6 +8,9 @@ root_dir = Path(__file__).resolve().parent.parent
 if str(root_dir) not in sys.path:
     sys.path.insert(0, str(root_dir))
 
+from voice_clone import EdgeTTSAdapter, patch_edge_tts_endpoint
+patch_edge_tts_endpoint()
+
 class handler(BaseHTTPRequestHandler):
     def do_GET(self):
         self.send_response(200)
@@ -62,11 +65,7 @@ class handler(BaseHTTPRequestHandler):
             diag["adapter_error"] = f"{type(e).__name__}: {e}"
 
         from voice_clone import GALLERY_VOICES
-        try:
-            from voice_clone import transform_to_male_voice as _t
-            build_tag = "gtts-fallback-v2"
-        except ImportError:
-            build_tag = "no-gtts-fallback"
+        build_tag = "master-39-voices-neural-v3"
         response = {
             "status": "online",
             "service": "Voice Studio Enterprise",

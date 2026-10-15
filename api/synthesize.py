@@ -122,22 +122,24 @@ class handler(BaseHTTPRequestHandler):
 
             else:
                 # Enrolled clone voice ID (e.g. "amogh", "speaker_01")
-                ref_dir = Path(root_dir) / "cache" / "voices" / voice_id
-                if not ref_dir.exists():
-                    ref_dir = Path(root_dir) / "voices" / voice_id
                 ref_wav = None
-                if ref_dir.exists():
-                    for cand in ["ref.wav", "ref(1).wav", "speaker.wav"]:
-                        if (ref_dir / cand).exists():
-                            ref_wav = str(ref_dir / cand)
+                for base_dir in [Path(root_dir) / "cache" / "voices" / voice_id, Path(root_dir) / "voices" / voice_id]:
+                    if base_dir.exists():
+                        candidates = sorted(base_dir.glob("*/ref.wav"), key=lambda p: p.stat().st_mtime, reverse=True)
+                        if candidates:
+                            ref_wav = str(candidates[0])
                             break
-                    if not ref_wav:
-                        wavs = list(ref_dir.glob("*.wav"))
-                        if wavs:
-                            ref_wav = str(wavs[0])
+                        elif (base_dir / "ref.wav").exists():
+                            ref_wav = str(base_dir / "ref.wav")
+                            break
+                        else:
+                            wavs = list(base_dir.rglob("*.wav"))
+                            if wavs:
+                                ref_wav = str(wavs[0])
+                                break
 
                 adapter = CloningTTSAdapter()
-                waveform, sr = adapter.synthesize(text, speaker_wav=ref_wav, language="en", speed=speed)
+                waveform, sr = adapter.synthesize(text, speaker_wav=ref_wav, language="en-in", speed=speed)
 
             if len(waveform) == 0:
                 adapter = EdgeTTSAdapter(forced_voice="en-IN-PrabhatNeural")
