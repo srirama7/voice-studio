@@ -178,7 +178,7 @@ def pitch_shift(audio: np.ndarray, sr: int, semitones: float) -> np.ndarray:
     the coarse male/female gap).
     """
     semitones = float(np.clip(semitones, -6.0, 6.0))
-    if abs(semitones) < 0.2 or len(audio) == 0:
+    if abs(semitones) < 0.8 or len(audio) == 0:
         return audio.astype(np.float32)
     factor = 2.0 ** (semitones / 12.0)
     # Step 1: resample (pitch AND tempo change together -- correct here)
@@ -465,8 +465,8 @@ class VoiceConverter:
                 if ref_tempo > 0:
                     base_tempo = estimate_tempo_sps(out, sr)
                     if base_tempo > 0:
-                        factor = float(np.clip(base_tempo / ref_tempo, 0.85, 1.18))
-                        if abs(factor - 1.0) > 0.03:
+                        factor = float(np.clip(base_tempo / ref_tempo, 0.88, 1.14))
+                        if abs(factor - 1.0) > 0.10:
                             logger.info("Voice morph: tempo ref=%.2fsps base=%.2fsps stretch=x%.3f",
                                         ref_tempo, base_tempo, factor)
                             out = phase_vocoder_time_stretch(out, factor)
@@ -552,9 +552,9 @@ ENROLLED_CLONE_PROFILES: dict[str, dict[str, Any]] = {
     "voice3": {
         "gender": "Male",
         "voice": "en-IN-PrabhatNeural",
-        "rate": "-15%",
-        "pitch": "-48Hz",
-        "target_f0": 110.0,
+        "rate": "-6%",
+        "pitch": "-16Hz",
+        "target_f0": 115.0,
         "label": "voice3 — my clone",
     },
 }
@@ -571,21 +571,21 @@ GALLERY_VOICES: dict[str, dict[str, str]] = {
         "voice": "en-IN-PrabhatNeural",
         "gender": "Male", "lang": "en-in",
         "label": "Prabhat — Indian English, authoritative male",
-        "rate": "+0%", "pitch": "-8Hz",
+        "rate": "+0%", "pitch": "-4Hz",
     },
-    # Male persona 2: Prabhat Deep — slow resonant baritone broadcaster (-50Hz!)
+    # Male persona 2: Prabhat Deep — rich resonant baritone broadcaster (-16Hz)
     "prabhat_deep_in_m": {
         "voice": "en-IN-PrabhatNeural",
         "gender": "Male", "lang": "en-in",
         "label": "Prabhat Deep — Indian English, deep baritone male",
-        "rate": "-15%", "pitch": "-50Hz",
+        "rate": "-6%", "pitch": "-16Hz",
     },
-    # Male persona 3: Prabhat Young — fast energetic presenter (+50Hz pitch!)
+    # Male persona 3: Prabhat Young — fast energetic presenter (+16Hz pitch)
     "prabhat_young_in_m": {
         "voice": "en-IN-PrabhatNeural",
         "gender": "Male", "lang": "en-in",
         "label": "Prabhat Young — Indian English, energetic young male",
-        "rate": "+20%", "pitch": "+50Hz",
+        "rate": "+8%", "pitch": "+16Hz",
     },
     # Female persona 1: Neerja Standard — warm, natural Indian female
     "neerja_in_f": {
@@ -623,19 +623,19 @@ GALLERY_VOICES: dict[str, dict[str, str]] = {
         "voice": "hi-IN-MadhurNeural",
         "gender": "Male", "lang": "hi",
         "label": "Madhur — Hindi, standard male",
-        "rate": "+0%", "pitch": "-5Hz",
+        "rate": "+0%", "pitch": "-4Hz",
     },
     "madhur_deep_hi_m": {
         "voice": "hi-IN-MadhurNeural",
         "gender": "Male", "lang": "hi",
         "label": "Madhur Deep — Hindi, deep resonant male",
-        "rate": "-12%", "pitch": "-48Hz",
+        "rate": "-6%", "pitch": "-16Hz",
     },
     "madhur_young_hi_m": {
         "voice": "hi-IN-MadhurNeural",
         "gender": "Male", "lang": "hi",
         "label": "Madhur Young — Hindi, bright energetic young male",
-        "rate": "+18%", "pitch": "+48Hz",
+        "rate": "+8%", "pitch": "+16Hz",
     },
     "swara_hi_f": {
         "voice": "hi-IN-SwaraNeural",
@@ -663,19 +663,19 @@ GALLERY_VOICES: dict[str, dict[str, str]] = {
         "voice": "kn-IN-GaganNeural",
         "gender": "Male", "lang": "kn",
         "label": "Gagan — Kannada, standard male",
-        "rate": "+0%", "pitch": "-5Hz",
+        "rate": "+0%", "pitch": "-4Hz",
     },
     "gagan_deep_kn_m": {
         "voice": "kn-IN-GaganNeural",
         "gender": "Male", "lang": "kn",
         "label": "Gagan Deep — Kannada, deep baritone male",
-        "rate": "-12%", "pitch": "-48Hz",
+        "rate": "-6%", "pitch": "-16Hz",
     },
     "gagan_young_kn_m": {
         "voice": "kn-IN-GaganNeural",
         "gender": "Male", "lang": "kn",
         "label": "Gagan Young — Kannada, bright young male",
-        "rate": "+18%", "pitch": "+45Hz",
+        "rate": "+8%", "pitch": "+16Hz",
     },
     "sapna_kn_f": {
         "voice": "kn-IN-SapnaNeural",
@@ -703,7 +703,7 @@ GALLERY_VOICES: dict[str, dict[str, str]] = {
         "voice": "ta-IN-ValluvarNeural",
         "gender": "Male", "lang": "ta",
         "label": "Valluvar — Tamil, standard male",
-        "rate": "+0%", "pitch": "-8Hz",
+        "rate": "+0%", "pitch": "-4Hz",
     },
     "pallavi_ta_f": {
         "voice": "ta-IN-PallaviNeural",
@@ -719,7 +719,7 @@ GALLERY_VOICES: dict[str, dict[str, str]] = {
         "voice": "te-IN-MohanNeural",
         "gender": "Male", "lang": "te",
         "label": "Mohan — Telugu, standard male",
-        "rate": "+0%", "pitch": "-8Hz",
+        "rate": "+0%", "pitch": "-4Hz",
     },
     "shruti_te_f": {
         "voice": "te-IN-ShrutiNeural",
@@ -735,7 +735,7 @@ GALLERY_VOICES: dict[str, dict[str, str]] = {
         "voice": "ml-IN-MidhunNeural",
         "gender": "Male", "lang": "ml",
         "label": "Midhun — Malayalam, standard male",
-        "rate": "+0%", "pitch": "-8Hz",
+        "rate": "+0%", "pitch": "-4Hz",
     },
     "sobhana_ml_f": {
         "voice": "ml-IN-SobhanaNeural",
@@ -751,7 +751,7 @@ GALLERY_VOICES: dict[str, dict[str, str]] = {
         "voice": "mr-IN-ManoharNeural",
         "gender": "Male", "lang": "mr",
         "label": "Manohar — Marathi, standard male",
-        "rate": "+0%", "pitch": "-8Hz",
+        "rate": "+0%", "pitch": "-4Hz",
     },
     "aarohi_mr_f": {
         "voice": "mr-IN-AarohiNeural",
@@ -767,7 +767,7 @@ GALLERY_VOICES: dict[str, dict[str, str]] = {
         "voice": "bn-IN-BashkarNeural",
         "gender": "Male", "lang": "bn",
         "label": "Bashkar — Bengali, standard male",
-        "rate": "+0%", "pitch": "-8Hz",
+        "rate": "+0%", "pitch": "-4Hz",
     },
     "tanishaa_bn_f": {
         "voice": "bn-IN-TanishaaNeural",
@@ -783,7 +783,7 @@ GALLERY_VOICES: dict[str, dict[str, str]] = {
         "voice": "gu-IN-NiranjanNeural",
         "gender": "Male", "lang": "gu",
         "label": "Niranjan — Gujarati, standard male",
-        "rate": "+0%", "pitch": "-8Hz",
+        "rate": "+0%", "pitch": "-4Hz",
     },
     "dhwani_gu_f": {
         "voice": "gu-IN-DhwaniNeural",
@@ -799,7 +799,7 @@ GALLERY_VOICES: dict[str, dict[str, str]] = {
         "voice": "ur-IN-SalmanNeural",
         "gender": "Male", "lang": "ur",
         "label": "Salman — Urdu, standard male",
-        "rate": "+0%", "pitch": "-8Hz",
+        "rate": "+0%", "pitch": "-4Hz",
     },
 }
 
@@ -858,24 +858,21 @@ def transform_to_male_voice(audio: np.ndarray, sr: int) -> np.ndarray:
         return audio.astype(np.float32)
 
 
-def apply_human_warmth_dsp(audio: np.ndarray, sr: int, warmth: float = 1.55,
-                           brightness: float = 0.80, is_female: bool = False) -> np.ndarray:
+def apply_human_warmth_dsp(audio: np.ndarray, sr: int, warmth: float = 1.15,
+                           brightness: float = 1.05, is_female: bool = False) -> np.ndarray:
     """
-    6-Layer Studio Humanization DSP — Gender-Optimized for Indian Voices.
+    Studio Broadcast DSP — Clean, Warm, and Natural for Indian Voices.
 
-    Male path: Deep chest sub-bass boost (80-200 Hz) + nasal consonant body
-      (400-800 Hz) + presence boost (2-3.5 kHz) + high-frequency roll-off.
-      Result: sounds authentically like a resonant Indian male narrator.
-    Female path: Bright head-voice shimmer (2.8-5 kHz) + soft chest warmth
-      (200-350 Hz) + clean airy highs.
-      Result: sounds like a clear, bright Indian female speaker.
+    Male path: Clean sub-sonic highpass (< 60 Hz) + natural chest resonance
+      (120-250 Hz) + nasal cleanup (450-700 Hz) + crisp diction presence
+      (2.2-4.5 kHz) + smooth broadcast air shelf.
+    Female path: Sub-bass cut (< 120 Hz) + soft chest warmth (200-350 Hz) +
+      head-voice shimmer (2.8-5 kHz) + crisp air sparkle (7-11 kHz).
 
     Layers:
-      1. Gender-tuned harmonic saturation
-      2. Gender-tuned multi-band EQ (3-4 bands per gender)
-      3. Sub-bass cut for female (prevents muddiness)
-      4. Gender-tuned micro-vibrato (males: 4.5 Hz natural; females: 5.8 Hz airy)
-      5. Broadcast peak normalization
+      1. Gentle symmetric cubic saturation (zero DC bias, zero harsh distortion)
+      2. Studio multi-band broadcast EQ
+      3. Broadcast peak normalization (-0.5 dBFS)
     """
     if audio is None or len(audio) == 0:
         return audio
@@ -883,65 +880,50 @@ def apply_human_warmth_dsp(audio: np.ndarray, sr: int, warmth: float = 1.55,
         x = audio.astype(np.float64)
         n = len(x)
 
-        # 1. Harmonic Saturation (more aggressive for male to add chest grit)
+        # 1. Subtle, symmetric cubic saturation (analog warmth, zero DC offset, zero buzzing)
         if is_female:
-            sat = x + 0.018 * (x ** 2) - 0.004 * (x ** 3)
+            sat = x - 0.006 * (x ** 3)
         else:
-            # Stronger even-harmonic saturation → warmer, rounder, more masculine
-            sat = x + 0.055 * (x ** 2) - 0.015 * (x ** 3)
+            sat = x - 0.010 * (x ** 3)
 
-        # 2. Multi-band Spectral EQ
+        # 2. Studio Multi-Band Broadcast EQ
         fft_data = np.fft.rfft(sat)
         freqs = np.fft.rfftfreq(n, 1.0 / sr)
         gain = np.ones_like(freqs)
 
         if is_female:
-            # Sub-bass cut (< 120 Hz) — reduces muddiness in female voice
-            gain[freqs < 120] *= 0.70
+            # Sub-bass cleanup (< 120 Hz) — removes muddiness
+            gain[freqs < 120] *= 0.75
 
-            # Chest warmth — soft intimacy (200 Hz - 350 Hz)
+            # Chest warmth (200 Hz - 350 Hz)
             gain[(freqs >= 200) & (freqs <= 350)] *= 1.10
 
             # Presence sweet spot — head-voice shimmer (2800 Hz - 5000 Hz)
-            gain[(freqs >= 2800) & (freqs <= 5000)] *= 1.30
+            gain[(freqs >= 2800) & (freqs <= 5000)] *= 1.25
 
-            # Airy sparkle (7000 Hz - 10000 Hz) — keeps female voice crisp
-            gain[(freqs >= 7000) & (freqs <= 10000)] *= 1.08
-
-            # Very soft de-harsh (> 11000 Hz)
-            gain[freqs > 11000] *= 0.88
+            # Airy sparkle (7000 Hz - 11000 Hz)
+            gain[(freqs >= 7000) & (freqs <= 11000)] *= 1.08
 
         else:
-            # Deep sub-bass boost (80 Hz - 180 Hz) — big chest, Indian male resonance
-            gain[(freqs >= 80) & (freqs <= 180)] *= warmth * 1.10
+            # Sub-sonic rumble cut (< 60 Hz) — cleans bottom end
+            gain[freqs < 60] *= 0.65
 
-            # Mid-bass body (200 Hz - 480 Hz) — nasal consonant fullness
-            gain[(freqs >= 200) & (freqs <= 480)] *= 1.28
+            # Natural chest resonance (120 Hz - 250 Hz) — rich, authentic Indian male warmth
+            gain[(freqs >= 120) & (freqs <= 250)] *= 1.15
 
-            # Low-mid cut (600 Hz - 900 Hz) — removes boxy honk
-            gain[(freqs >= 600) & (freqs <= 900)] *= 0.82
+            # Boxiness cleanup (450 Hz - 700 Hz) — removes nasal honk
+            gain[(freqs >= 450) & (freqs <= 700)] *= 0.92
 
-            # Presence (1800 Hz - 3500 Hz) — male articulation clarity
-            gain[(freqs >= 1800) & (freqs <= 3500)] *= 1.18
+            # Diction clarity & vocal presence (2200 Hz - 4500 Hz) — crisp articulation
+            gain[(freqs >= 2200) & (freqs <= 4500)] *= 1.15
 
-            # High roll-off (> 6000 Hz) — less sibilance, more warmth
-            gain[freqs > 6000] *= brightness
+            # Broadcast air shelf (7000 Hz - 12000 Hz) — crystal clear finish, no harsh roll-off
+            gain[(freqs >= 7000) & (freqs <= 12000)] *= 1.05
 
         fft_data *= gain
         morphed = np.fft.irfft(fft_data, n=n)
 
-        # 3. Gender-tuned micro-vibrato (simulates natural vocal cord tremor)
-        t = np.arange(n) / sr
-        if is_female:
-            # Female: faster, lighter flutter (5.8 Hz, ~0.3 semitone depth)
-            vibrato_phase = 0.00028 * np.sin(2.0 * np.pi * 5.8 * t)
-        else:
-            # Male: slower, deeper chest resonance tremor (4.5 Hz, ~0.25 st)
-            vibrato_phase = 0.00022 * np.sin(2.0 * np.pi * 4.5 * t)
-        indices = np.clip(t * sr + vibrato_phase * sr, 0, n - 1)
-        morphed = np.interp(indices, np.arange(n), morphed)
-
-        # 4. Broadcast Peak Level Normalization (-0.5 dBFS)
+        # 3. Broadcast Peak Normalization (-0.5 dBFS)
         max_val = float(np.max(np.abs(morphed)))
         if max_val > 1e-4:
             morphed = (morphed / max_val) * 0.94
